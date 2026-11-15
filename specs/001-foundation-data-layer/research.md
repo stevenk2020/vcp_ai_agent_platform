@@ -42,7 +42,7 @@ implementation time but do not change the design.
 - **Rationale**: Backups carry business data off the machine, so encrypting them protects against a leaked bucket. A real restore into an empty database is the only proof a backup works (FR-012).
 - **Alternatives**: WAL archiving / pgBackRest / Barman (point-in-time recovery is more than the current scale needs; revisit if the data becomes irreplaceable); VPS provider snapshots only (not tested restore, same provider failure domain).
 - **Operator choice (2026-11-15)**: off-site destination is **Google Drive**, accessed through an rclone `drive` remote (for example `gdrive:platform-backups`). Practical points that shape the implementation:
-  - Authorisation needs a browser. On the headless VPS, run `rclone authorize "drive"` on a machine with a browser and paste the token into `secrets/rclone_config`.
+  - Authorisation needs a browser, but the VPS can stay headless. Option 1 (preferred): `ssh -L localhost:53682:localhost:53682 <user>@<vps>` from the operator's machine, then `rclone config` on the VPS and answer *yes* to browser authentication; the Google callback to `localhost:53682` travels through the tunnel. Option 2: answer *no* and run `rclone authorize "drive"` on a machine with a browser, then paste the token. Either way the result lands in `secrets/rclone_config`.
   - Use **your own Google OAuth client ID** (or a service account with a shared folder) instead of rclone's shared one, to avoid rate limits. If the OAuth consent screen is left in "Testing" status, Google expires the refresh token after 7 days and backups would silently start failing; publish the app (Internal/Production) or use a service account. The staleness health check (26 h) catches this, but it should not be a surprise.
   - Backups are encrypted with `age` before upload, so Drive only ever holds ciphertext.
   - Retention at the remote is handled by the backup job (`rclone delete --min-age`), default 30 days; Drive's trash is emptied by the same job.
@@ -58,8 +58,8 @@ implementation time but do not change the design.
 
 - **Decision**: Caddy in the `prod` profile with automatic certificates for `PLATFORM_DOMAIN`; placeholder site with `/healthz` returning 200 until the API exists. Locally the entry point is skipped.
 - **Rationale**: Caddy is already the constitution's choice and handles certificate issuance and renewal with no extra configuration.
-- **Operator choice (2026-11-15)**: `PLATFORM_DOMAIN=onepercentdata.site` (temporary). Requirements: an `A` record for the domain pointing at the VPS public IP, and ports 80 and 443 open in the firewall (Caddy uses them for certificate issuance and renewal). The domain can be changed later by editing one variable. If the apex domain is needed for another site, switch to a subdomain such as `platform.onepercentdata.site`; no design change.
-- *Operator input still open*: DNS record in place. Until then, HTTPS acceptance is deferred on the VPS (spec Assumptions).
+- **Operator choice (2026-11-15)**: `PLATFORM_DOMAIN=vcp.onepercentdata.site`. The operator already created the DNS record pointing at the VPS IP. Requirements: ports 80 and 443 open in the firewall (Caddy uses them for certificate issuance and renewal). The domain can be changed later by editing one variable.
+- *To verify at implementation time*: the record resolves to the VPS (`dig +short vcp.onepercentdata.site`) and ports 80/443 are reachable.
 
 ## R-9: Network exposure
 

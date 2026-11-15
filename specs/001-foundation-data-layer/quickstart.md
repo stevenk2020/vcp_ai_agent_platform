@@ -7,10 +7,10 @@ End-to-end checks that prove each success criterion. Interfaces are in
 
 - Linux machine (or the VPS) with Docker Engine 24+ and Compose v2, `make`, and `uv`
 - A Google Drive rclone remote named `gdrive` (token created with `rclone authorize "drive"` on a
-  machine with a browser, stored in `secrets/rclone_config`; see research R-6 about token expiry)
+  machine with a browser or an SSH port forward, stored in `secrets/rclone_config`; see research R-6)
 - An age key pair (public key goes in `secrets/backup_age_public_key`, private key stays with you).
   Not created yet: Scenario 4 is blocked until it exists
-- For production: `PLATFORM_DOMAIN=onepercentdata.site` with an `A` record pointing at the VPS and
+- For production: `PLATFORM_DOMAIN=vcp.onepercentdata.site` with an ``A` record pointing at the VPS and
   ports 80/443 open
 
 ## Scenario 1 — One command to healthy (SC-001, FR-001 to FR-003)
