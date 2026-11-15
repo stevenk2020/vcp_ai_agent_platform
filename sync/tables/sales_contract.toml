@@ -1,0 +1,483 @@
+# Definition of the copy of dbo.sales_contract (specs/004-sales-contract-sync, contracts/sync-definition.md).
+# Source of truth for the copy's columns and for docs/data/sales_contract-columns.md (generated).
+# Bump `version` when anything below changes; the worker records the hash of this file with every copy.
+
+[table]
+source = "dbo.sales_contract"
+copy = "sales_contract"
+key = ["entity", "row_id"]
+version = 1
+
+[guards]
+min_fraction = 0.5
+min_rows = 1000
+
+[[columns]]
+name = "entity"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Company that owns the line: vcp, salud, nufa or durabe"
+sensitivity = "none"
+
+[[columns]]
+name = "biz_doc_id"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Internal business document identifier"
+sensitivity = "none"
+
+[[columns]]
+name = "doc_code"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Document type code (C2 for vcp and salud, SO for nufa, C3 for durabe)"
+sensitivity = "none"
+
+[[columns]]
+name = "doc_date"
+source_type = "date"
+copy_type = "date"
+meaning = "Date of the contract or tender document"
+sensitivity = "none"
+
+[[columns]]
+name = "doc_no"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Document number (one document has several lines)"
+sensitivity = "none"
+
+[[columns]]
+name = "description"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Free-text description of the document"
+sensitivity = "none"
+
+[[columns]]
+name = "finished_date"
+source_type = "date"
+copy_type = "date"
+meaning = "End date of the tender or contract (not a delivery date)"
+sensitivity = "none"
+
+[[columns]]
+name = "finished_year"
+source_type = "float"
+copy_type = "integer"
+meaning = "Year of the end date"
+sensitivity = "none"
+
+[[columns]]
+name = "finished_month_no"
+source_type = "float"
+copy_type = "integer"
+meaning = "Month of the end date as YYYYMM"
+sensitivity = "none"
+
+[[columns]]
+name = "finished_month_name_1"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Month of the end date as text YYYY-MM"
+sensitivity = "none"
+
+[[columns]]
+name = "finished_month_name_2"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Short English month name of the end date"
+sensitivity = "none"
+
+[[columns]]
+name = "finished_quarter_no"
+source_type = "float"
+copy_type = "integer"
+meaning = "Quarter of the end date as YYYYQQ"
+sensitivity = "none"
+
+[[columns]]
+name = "finished_quarter_text"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Quarter of the end date as text YYYY-QQ"
+sensitivity = "none"
+
+[[columns]]
+name = "finished_leadtime"
+source_type = "float"
+copy_type = "integer"
+meaning = "Days between the end date and a reference date (can be negative; unit to be confirmed by the business owner)"
+sensitivity = "none"
+
+[[columns]]
+name = "confirmed_date"
+source_type = "date"
+copy_type = "date"
+meaning = "Start date of the contract (confirmation date); empty for about 100 rows"
+sensitivity = "none"
+
+[[columns]]
+name = "confirmed_year"
+source_type = "float"
+copy_type = "integer"
+meaning = "Year of the start date"
+sensitivity = "none"
+
+[[columns]]
+name = "confirmed_month_no"
+source_type = "float"
+copy_type = "integer"
+meaning = "Month of the start date as YYYYMM"
+sensitivity = "none"
+
+[[columns]]
+name = "confirmed_month_name_1"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Month of the start date as text YYYY-MM"
+sensitivity = "none"
+
+[[columns]]
+name = "confirmed_month_name_2"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Short English month name of the start date"
+sensitivity = "none"
+
+[[columns]]
+name = "confirmed_quarter_no"
+source_type = "float"
+copy_type = "integer"
+meaning = "Quarter of the start date as YYYYQQ"
+sensitivity = "none"
+
+[[columns]]
+name = "confirmed_quarter_text"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Quarter of the start date as text YYYY-QQ"
+sensitivity = "none"
+
+[[columns]]
+name = "confirmed_leadtime"
+source_type = "float"
+copy_type = "integer"
+meaning = "Days between the start date and a reference date (unit to be confirmed by the business owner)"
+sensitivity = "none"
+
+[[columns]]
+name = "contract_leadtime"
+source_type = "float"
+copy_type = "integer"
+meaning = "Contract duration between start and end (unit to be confirmed by the business owner)"
+sensitivity = "none"
+
+[[columns]]
+name = "created_at"
+source_type = "datetime"
+copy_type = "timestamp(3)"
+meaning = "When the source row was created (no time zone)"
+sensitivity = "none"
+
+[[columns]]
+name = "decision_no"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Tender decision number"
+sensitivity = "none"
+
+[[columns]]
+name = "row_id"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Line identifier; unique only together with entity"
+sensitivity = "none"
+
+[[columns]]
+name = "item_code"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Internal item code"
+sensitivity = "none"
+
+[[columns]]
+name = "unit"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Unit of measure (Vien, Lo, Ong, Chai and so on; some spellings are dirty)"
+sensitivity = "none"
+
+[[columns]]
+name = "code_old"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Goods code used by the business"
+sensitivity = "none"
+
+[[columns]]
+name = "item_name"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Goods name"
+sensitivity = "none"
+
+[[columns]]
+name = "quantity_contract"
+source_type = "float"
+copy_type = "numeric(20,4)"
+meaning = "Quantity under the contract"
+sensitivity = "none"
+
+[[columns]]
+name = "unit_price_before_tax_contract"
+source_type = "float"
+copy_type = "numeric(24,6)"
+meaning = "Winning unit price before tax"
+sensitivity = "none"
+
+[[columns]]
+name = "unit_price_after_tax_contract"
+source_type = "float"
+copy_type = "numeric(24,6)"
+meaning = "Winning unit price after tax"
+sensitivity = "none"
+
+[[columns]]
+name = "amount_before_tax_contract"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Line total under the contract before tax"
+sensitivity = "none"
+
+[[columns]]
+name = "amount_tax_contract"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Tax amount of the line under the contract"
+sensitivity = "none"
+
+[[columns]]
+name = "amount_after_tax_contract"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Line total under the contract after tax"
+sensitivity = "none"
+
+[[columns]]
+name = "tax_code"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Tax code: R05, R08, R10 mean 5%, 8%, 10% VAT"
+sensitivity = "none"
+
+[[columns]]
+name = "quantity_delivered"
+source_type = "float"
+copy_type = "numeric(20,4)"
+meaning = "Quantity delivered to date"
+sensitivity = "none"
+
+[[columns]]
+name = "price_before_tax_delivered"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Value delivered to date before tax (a total, not a unit price)"
+sensitivity = "none"
+
+[[columns]]
+name = "tax_amount_delivered"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Tax on the value delivered to date"
+sensitivity = "none"
+
+[[columns]]
+name = "price_after_tax_delivered"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Value delivered to date after tax (a total)"
+sensitivity = "none"
+
+[[columns]]
+name = "quantity_returned"
+source_type = "float"
+copy_type = "numeric(20,4)"
+meaning = "Quantity returned to date (zero or negative)"
+sensitivity = "none"
+
+[[columns]]
+name = "price_before_tax_returned"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Value returned to date before tax (zero or negative)"
+sensitivity = "none"
+
+[[columns]]
+name = "tax_amount_returned"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Tax on the value returned to date"
+sensitivity = "none"
+
+[[columns]]
+name = "price_after_tax_returned"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Value returned to date after tax (zero or negative)"
+sensitivity = "none"
+
+[[columns]]
+name = "quantity_finished"
+source_type = "float"
+copy_type = "numeric(20,4)"
+meaning = "Quantity completed to date (delivered plus returned)"
+sensitivity = "none"
+
+[[columns]]
+name = "price_before_tax_finished"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Value completed to date before tax (delivered plus returned)"
+sensitivity = "none"
+
+[[columns]]
+name = "tax_amount_finished"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Tax on the value completed to date"
+sensitivity = "none"
+
+[[columns]]
+name = "price_after_tax_finished"
+source_type = "float"
+copy_type = "numeric(24,4)"
+meaning = "Value completed to date after tax (delivered plus returned), cumulative not per month"
+sensitivity = "none"
+
+[[columns]]
+name = "remark"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Free-text remark (very short in practice)"
+sensitivity = "none"
+
+[[columns]]
+name = "is_hang_gui_thau"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Flag '1. Yes' or '2. No'; meaning to be confirmed by the business owner (consigned goods for a tender)"
+sensitivity = "none"
+
+[[columns]]
+name = "cat_2"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Fine classification: Thau, Ap Thau, Gui Thau, HDMB, Khac and CKG variants"
+sensitivity = "none"
+
+[[columns]]
+name = "is_tong_thau"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Flag, always '2. No' today"
+sensitivity = "none"
+
+[[columns]]
+name = "customer_code"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Customer code (group by this, not by name)"
+sensitivity = "none"
+
+[[columns]]
+name = "customer_name"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Customer name (several spellings exist for some codes)"
+sensitivity = "none"
+
+[[columns]]
+name = "customer_address"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Customer address (a business address)"
+sensitivity = "business_address"
+
+[[columns]]
+name = "address"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Delivery address (a business address)"
+sensitivity = "business_address"
+
+[[columns]]
+name = "city_code"
+source_type = "float"
+copy_type = "integer"
+meaning = "Province code"
+sensitivity = "none"
+
+[[columns]]
+name = "city_name"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Province name now (after the merger of provinces)"
+sensitivity = "none"
+
+[[columns]]
+name = "update_time"
+source_type = "datetime"
+copy_type = "timestamp(3)"
+meaning = "When the source row was last updated (no time zone)"
+sensitivity = "none"
+
+[[columns]]
+name = "cat_1"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Coarse classification: Thau, HDMB, Khac"
+sensitivity = "none"
+
+[[columns]]
+name = "city_name_2"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Province name before the merger of provinces"
+sensitivity = "none"
+
+[[excluded]]
+name = "employee_code_bdd"
+source_type = "nvarchar"
+meaning = "Salesperson code"
+reason = "staff personal data (constitution: sensitive columns masked or excluded); decision 2026-11-15"
+
+[[excluded]]
+name = "employee_name_bdd"
+source_type = "nvarchar"
+meaning = "Salesperson name"
+reason = "staff personal data (constitution: sensitive columns masked or excluded); decision 2026-11-15"
+
+[[indexes]]
+name = "sales_contract_entity_idx"
+columns = ["entity"]
+
+[[indexes]]
+name = "sales_contract_confirmed_date_idx"
+columns = ["confirmed_date"]
+
+[[indexes]]
+name = "sales_contract_finished_date_idx"
+columns = ["finished_date"]
+
+[[indexes]]
+name = "sales_contract_customer_code_idx"
+columns = ["customer_code"]
+
+[[indexes]]
+name = "sales_contract_code_old_idx"
+columns = ["code_old"]
+
+[[indexes]]
+name = "sales_contract_cat_idx"
+columns = ["cat_1", "cat_2"]

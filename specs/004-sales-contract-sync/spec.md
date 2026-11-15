@@ -182,7 +182,7 @@ The sync only reads from the source. At start it checks that the source account 
 
 ## Assumptions
 
-- Only `dbo.sales_contract` is synced now; the source rebuilds it about every 10 minutes (about 2 minutes, one commit) and has about 35,000 rows and 66 nullable columns, with `(entity, row_id)` unique (V-2, V-3 answered; verified on 2026-11-15).
+- Only `dbo.sales_contract` is synced now; the source rebuilds it about every 10 minutes (about 2 minutes, one commit) and has about 35,000 rows and 64 nullable columns, with `(entity, row_id)` unique (V-2, V-3 answered; verified on 2026-11-15).
 - The source accepts encrypted connections (checked on 2026-11-15 with the read-only account), so encryption is required by default.
 - The source's consistent snapshot reading is OFF (V-4 pending with the DBA). Until it is ON, a read can wait up to about 2 minutes for the source's commit; the platform tolerates this with a read limit of 5 minutes. A scheduled run that is still waiting does not overlap with the next one.
 - "Data as of" means the time the consistent read of the source started (platform clock), not a value from the source.
@@ -191,5 +191,5 @@ The sync only reads from the source. At start it checks that the source account 
 - The source account in `.env` is read-only (V-1 resolved); the start check is an additional guard, not a replacement for correct source permissions.
 - Admin access to run history, freshness and manual trigger reuses the existing admin area and API rules (feature 002/003); no new roles.
 - Mail stays disabled; there is no alert by email. A failing state is visible in the admin area and in the logs.
-- The copy therefore has 64 of the source's 66 columns; questions about salespeople cannot be answered from it (the knowledge base must say so when the topic feature is built).
+- The copy therefore has 62 of the source's 64 columns; questions about salespeople cannot be answered from it (the knowledge base must say so when the topic feature is built).
 - Out of scope: the Topic MCP server and query tool, serving the knowledge base, the chat UI, the agent loop, the LLM gateway, other source tables, writing back to the source.

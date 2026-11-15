@@ -16,13 +16,13 @@ All objects are in schema `serving`, owned by `sync_writer`, created by the work
 
 ## serving.sales_contract (the copy)
 
-64 columns: the source's 66 minus `employee_code_bdd` and `employee_name_bdd` (excluded, FR-020). Every column
+62 columns: the source's 64 minus `employee_code_bdd` and `employee_name_bdd` (excluded, FR-020). Every column
 is nullable like the source. Full list with meaning, source type and sensitivity: `sync/tables/sales_contract.toml`
 (the column dictionary, FR-017) and the generated `docs/data/sales_contract-columns.md`.
 
 | Group | Columns | Copy type |
 | --- | --- | --- |
-| Text (31) | every `nvarchar` column of the source except the two excluded ones (identifiers such as `entity`, `row_id`, `doc_no`, `customer_code`, `code_old`; names; classifications `cat_1`, `cat_2`; flags; remarks; month and quarter labels; addresses) | `text` |
+| Text (29) | every `nvarchar` column of the source except the two excluded ones (identifiers such as `entity`, `row_id`, `doc_no`, `customer_code`, `code_old`; names; classifications `cat_1`, `cat_2`; flags; remarks; month and quarter labels; addresses) | `text` |
 | Dates (3) | `doc_date`, `finished_date`, `confirmed_date` | `date` |
 | Date-times (2) | `created_at`, `update_time` | `timestamp(3)` (no time zone) |
 | Whole numbers (10) | `finished_year`, `finished_month_no`, `finished_quarter_no`, `finished_leadtime`, `confirmed_year`, `confirmed_month_no`, `confirmed_quarter_no`, `confirmed_leadtime`, `contract_leadtime`, `city_code` | `integer` |

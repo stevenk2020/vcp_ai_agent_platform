@@ -13,7 +13,7 @@ in one committed read (waiting for the source's own commit, or snapshot isolatio
 streams it with `COPY` into a staging table, applies guards (zero rows, below 50% of the current copy, below a minimum,
 duplicate keys, shape change, value out of range), and swaps staging for the live table in one short transaction that
 also updates the freshness record. On any problem the previous copy stays and the run is recorded with a reason code and a
-scrubbed message. The copy has 64 of the 66 columns (the two salesperson columns are excluded), exact decimals for
+scrubbed message. The copy has 62 of the 64 columns (the two salesperson columns are excluded), exact decimals for
 money, integers for whole-number floats. The API gains three admin endpoints (status, run history, "sync now"), the
 admin page gains a "Data" tab, and everything is proven with a fake source. See [research.md](research.md) for each
 decision, [data-model.md](data-model.md) and [contracts/](contracts/).
@@ -32,11 +32,11 @@ decision, [data-model.md](data-model.md) and [contracts/](contracts/).
 
 **Project Type**: background worker service plus additive API and admin-page changes
 
-**Performance Goals**: copy within 15 minutes of a source change; a full run of 35k rows x 64 columns under 5 minutes including the wait for the source's commit (SC-001, SC-002); swap lock held for milliseconds
+**Performance Goals**: copy within 15 minutes of a source change; a full run of 35k rows x 62 columns under 5 minutes including the wait for the source's commit (SC-001, SC-002); swap lock held for milliseconds
 
 **Constraints**: the connection to the source is encrypted (`SOURCE_ENCRYPT=require`); the source is only read (explicit column list, no `NOLOCK`, deadlock priority low); excluded columns never selected; secrets only as files; no secret in logs or error texts; readers never see an empty or partial copy; one run at a time
 
-**Scale/Scope**: one table, about 35,000 rows (measured 35,440), 64 columns, one run about every 10 minutes (about 144 runs a day, about 4,300 run rows kept)
+**Scale/Scope**: one table, about 35,000 rows (measured 35,440), 62 columns, one run about every 10 minutes (about 144 runs a day, about 4,300 run rows kept)
 
 ## Constitution Check
 

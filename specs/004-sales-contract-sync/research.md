@@ -6,7 +6,7 @@ personal data is recorded here). Source: SQL Server 2019 (15.0.4335), database s
 ## R-1: How the worker talks to SQL Server
 
 - **Decision**: Python package `pymssql` (bundled FreeTDS, no system driver). Used synchronously in the worker.
-- **Rationale**: it connected and read 35,440 x 66 from this VPS with no OS packages; the Microsoft ODBC driver would
+- **Rationale**: it connected and read 35,440 x 64 from this VPS with no OS packages; the Microsoft ODBC driver would
   add an apt repository, a licence prompt and a larger image for no gain at this size.
 - **Alternatives**: `pyodbc` + msodbcsql18 (heavier image, EULA); `python-tds` (pure Python, slower, less used);
   `mssql-python` (new, less proven).
@@ -103,7 +103,7 @@ Measured on all 35,440 rows:
 
 | Source | Findings | Copy type |
 | --- | --- | --- |
-| `nvarchar(n)` (33 columns, 31 copied) | Vietnamese text, empty strings and nulls both occur | `text` (no length change; empty stays empty) |
+| `nvarchar(n)` (31 columns, 29 copied) | Vietnamese text, empty strings and nulls both occur | `text` (no length change; empty stays empty) |
 | `date` (3) | | `date` |
 | `datetime` (2: `created_at`, `update_time`) | no time zone, 3.33 ms precision | `timestamp(3)` (no zone assumed) |
 | `float` year/month/quarter/leadtime/`city_code` (10) | all whole numbers (month number is `YYYYMM`, quarter is `YYYYQQ`, up to 202808; lead time can be negative: data quality) | `integer`; the run is refused if a non-whole value appears |
@@ -118,7 +118,7 @@ no longer drift.
 
 ## R-9: Sensitive columns (spec FR-020, decision: option A)
 
-- **Decision**: the copy definition lists the columns explicitly (64 of 66). `employee_code_bdd` and `employee_name_bdd`
+- **Decision**: the copy definition lists the columns explicitly (62 of 64). `employee_code_bdd` and `employee_name_bdd`
   are excluded and are never part of the source `SELECT`. `customer_address` and `address` are kept, flagged
   `sensitivity: business_address`.
 - **Rationale**: staff personal data is not needed for the first topic's questions and the name is missing in 54% of

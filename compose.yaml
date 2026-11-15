@@ -214,6 +214,12 @@ services:
       - sync_writer_password
       - source_sqlserver
       - app_owner_password
+      # the permission tests log in as these roles (test project only)
+      - agent_ro_password
+      - api_rw_password
+    volumes:
+      # lets the drift test compare the committed column dictionary with the definition
+      - ./docs/data:/repo-docs/data:ro
     networks:
       - platform
 

@@ -26,7 +26,7 @@ All green, and the counts of each suite are reported.
 3. Compare with the source: `SELECT count(*)` on both sides (`docker compose exec postgres psql ...` and your SQL
    Server tool) are equal; spot-check three rows by `(entity, row_id)`: text with diacritics, a unit price with
    decimals, a null date.
-4. Confirm the excluded columns are absent: `\d serving.sales_contract` has 64 columns and no `employee_*`.
+4. Confirm the excluded columns are absent: `\d serving.sales_contract` has 62 columns and no `employee_*`.
 5. Open the admin page, tab **Data**: status line healthy with "data as of", last runs listed. Press **Sync now**,
    confirm: a new run appears within about 10 seconds and finishes; pressing again while it runs shows the busy message.
 6. While a run is waiting on the source, query the copy from another session: it answers immediately with the old

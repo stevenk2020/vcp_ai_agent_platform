@@ -4,7 +4,7 @@ Status: **DRAFT written by the coding agent from the live source data on 2026-11
 Every statement marked **[CONFIRM]** is an inference that the business owner must confirm before the
 agent is allowed to rely on it. No customer names, employee names or money totals are stored here.
 
-Source: SQL Server `dbo.sales_contract`, 35,440 rows, 66 columns, every column nullable.
+Source: SQL Server `dbo.sales_contract`, 35,440 rows, 64 columns, every column nullable.
 Rewritten by a delete+insert job about every 10 minutes (about 2 minutes per run, one commit).
 
 ## 1. What one row is
