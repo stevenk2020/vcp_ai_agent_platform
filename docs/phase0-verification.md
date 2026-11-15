@@ -8,10 +8,10 @@ Status values: `open`, `in_progress`, `resolved`.
 
 | id | question | owner | status | finding | date |
 | --- | --- | --- | --- | --- | --- |
-| V-1 | Obtain read access to the source SQL Server with a read-only account (check what the current account in `.env` can do) | TODO(owner) | open | | |
-| V-2 | Measure the real row count and the delete-insert cycle of `dbo.sales_contract` (how often it runs, how long the table is empty or partial) | TODO(owner) | open | | |
-| V-3 | Does the source delete-insert job run in a single transaction? (ask the table owner) | TODO(owner) | open | | |
-| V-4 | Can the DBA enable snapshot isolation (`ALLOW_SNAPSHOT_ISOLATION`) on the source database? | TODO(owner) | open | | |
+| V-1 | Obtain read access to the source SQL Server with a read-only account (check what the current account in `.env` can do) | Kien | resolved | The account in `.env` is SELECT-only: not sysadmin, not db_owner (confirmed by the operator). The SQL Server port is reachable from this VPS (TCP check only, no login attempted from here yet). | 2026-11-15 |
+| V-2 | Measure the real row count and the delete-insert cycle of `dbo.sales_contract` (how often it runs, how long the table is empty or partial) | Kien | in_progress | About 40k rows in `dbo.sales_contract` (operator). The delete-insert cycle and the length of the empty/partial window are still unknown: ask the table owner. | 2026-11-15 |
+| V-3 | Does the source delete-insert job run in a single transaction? (ask the table owner) | Kien | open | Not answered yet: ask the table owner whether delete and insert run in one transaction. | 2026-11-15 |
+| V-4 | Can the DBA enable snapshot isolation (`ALLOW_SNAPSHOT_ISOLATION`) on the source database? | Kien | in_progress | The DBA was asked to enable `ALLOW_SNAPSHOT_ISOLATION`; it is still OFF today. | 2026-11-15 |
 
 ## How to record a finding
 

@@ -184,4 +184,6 @@ Run on 2026-11-15 on the dev machine (which is also the production VPS). 93 auto
 | SC-006 re-running migrations is a no-op | Met | `tests/foundation/test_migrations.py` |
 | SC-007 four verification items recorded with owner and status | **Partly**: the tracker exists (`docs/phase0-verification.md`), owners are still `TODO(owner)` and all items are `open` | T047 is the operator's |
 
-Not yet verified (operator tasks): HTTPS on `vcp.onepercentdata.site` with `make up-prod` and the firewall (T016), Google Drive backup and first real restore (T040), SQL Server account privileges (T030), the four verification items (T047).
+HTTPS verified on 2026-11-15: `make up-prod` obtained a Let's Encrypt certificate for `vcp.onepercentdata.site` and `https://vcp.onepercentdata.site/healthz` returns 200 (T016). The SQL Server account is SELECT-only (T030).
+
+Not yet verified (operator tasks): Google Drive backup and first real restore (T040), the remaining verification items V-2, V-3 and V-4 (T047).

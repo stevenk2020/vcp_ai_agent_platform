@@ -27,7 +27,7 @@ cannot be read.
    and open the printed link on your machine. Copy the resulting `[gdrive]` section into
    `secrets/rclone_config`. Publish your Google OAuth consent screen, otherwise the token expires
    after 7 days.
-4. `make up` (it loads `compose.backup.yaml` once the key exists), then `make backup`, and check the
+4. `make up` (it loads `compose.backup.yaml` once both the key and the rclone config exist), then `make backup`, and check the
    two `.age` files appear in the Drive folder.
 
 ## Rehearse a restore (safe, touches nothing live)

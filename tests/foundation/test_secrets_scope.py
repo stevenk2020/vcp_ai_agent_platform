@@ -33,7 +33,9 @@ COMPOSE_FILES = [REPO_ROOT / "compose.yaml", REPO_ROOT / "compose.backup.yaml"]
 
 def _config() -> tuple[dict, str]:
     args = ["docker", "compose", "-f", "compose.yaml"]
-    if (REPO_ROOT / "compose.backup.yaml").exists() and (SECRETS_DIR / "backup_age_public_key").exists():
+    backup_ready = all((SECRETS_DIR / name).is_file() and (SECRETS_DIR / name).stat().st_size > 0
+                       for name in ("backup_age_public_key", "rclone_config"))
+    if (REPO_ROOT / "compose.backup.yaml").exists() and backup_ready:
         args += ["-f", "compose.backup.yaml"]
     args += ["--profile", "prod", "config", "--format", "json"]
     out = subprocess.run(args, cwd=REPO_ROOT, text=True, capture_output=True, check=True).stdout

@@ -32,7 +32,7 @@ the tests with `make test ARGS="-k permissions"` (not `make test -- -k ...`).
 
 | Path | What |
 | --- | --- |
-| `compose.yaml`, `compose.backup.yaml` | services; the backup service is loaded only once `secrets/backup_age_public_key` exists |
+| `compose.yaml`, `compose.backup.yaml` | services; the backup service is loaded only once `secrets/backup_age_public_key` and `secrets/rclone_config` both exist |
 | `db/bootstrap/` | idempotent extensions, schemas, roles and grants (run on every `make up`) |
 | `db/migrations/` | versioned SQL migrations (dbmate), tracked in `app.schema_migrations` |
 | `secrets/` | one file per secret; nothing but `README.md` is tracked |

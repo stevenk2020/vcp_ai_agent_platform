@@ -16,8 +16,9 @@ yet, with random values. It never overwrites an existing file.
 | `backup_age_public_key` | **operator** (`age-keygen`; public key only) | `backup` |
 | `rclone_config` | **operator** (`rclone config` for the Google Drive remote `gdrive`) | `backup` |
 
-The two operator-provided files are optional until you want backups: while
-`backup_age_public_key` is missing or empty, `make up` starts the stack without the backup service.
+The two operator-provided files are optional until you want backups: while either
+`backup_age_public_key` or `rclone_config` is missing or empty, `make up` starts the stack without the
+backup service.
 
 Rotating a password: edit the file, then `make up` (the bootstrap step re-applies role passwords).
 

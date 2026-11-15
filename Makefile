@@ -9,10 +9,11 @@ SHELL := /bin/bash
 
 ARGS ?=
 
-# Compose files: the backup service is only loaded once the operator has provided an age public key
+# Compose files: the backup service is only loaded once the operator has provided BOTH the age public key
+# and the rclone config
 # (Compose cannot declare optional secret files; see research R-6).
 COMPOSE_FILES := -f compose.yaml
-BACKUP_ENABLED := $(shell test -s secrets/backup_age_public_key && test -f compose.backup.yaml && echo yes)
+BACKUP_ENABLED := $(shell test -s secrets/backup_age_public_key && test -s secrets/rclone_config && test -f compose.backup.yaml && echo yes)
 ifeq ($(BACKUP_ENABLED),yes)
 COMPOSE_FILES += -f compose.backup.yaml
 endif
@@ -36,12 +37,12 @@ check-compose:
 	  echo "docker compose $$v is older than $(MIN_COMPOSE)"; exit 1; fi
 
 up: secrets check-compose
-	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: no age key yet"; fi
+	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: needs both secrets/backup_age_public_key and secrets/rclone_config"; fi
 	$(DC) up -d
 	@bash scripts/wait-healthy.sh $(COMPOSE_FILES)
 
 up-prod: secrets check-compose
-	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: no age key yet"; fi
+	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: needs both secrets/backup_age_public_key and secrets/rclone_config"; fi
 	$(DC) --profile prod up -d
 	@bash scripts/wait-healthy.sh $(COMPOSE_FILES) --profile prod
 
@@ -52,7 +53,7 @@ migrate:
 	$(DC) run --rm migrate
 
 backup:
-	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: provide secrets/backup_age_public_key first (docs/restore.md)"; exit 1; fi
+	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: provide secrets/backup_age_public_key and secrets/rclone_config first (docs/restore.md)"; exit 1; fi
 	$(DC) exec -T backup /usr/local/bin/backup.sh
 
 restore-test:

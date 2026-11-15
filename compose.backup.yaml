@@ -1,5 +1,5 @@
 # Backup service and its two operator-provided secrets.
-# Loaded by `make up` only when secrets/backup_age_public_key exists and is non-empty, because Compose
+# Loaded by `make up` only when secrets/backup_age_public_key and secrets/rclone_config both exist and are non-empty, because Compose
 # fails when a declared secret file is missing (research R-6). Always combine with compose.yaml.
 secrets:
   backup_age_public_key:
