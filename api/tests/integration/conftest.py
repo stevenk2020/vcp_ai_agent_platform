@@ -81,6 +81,39 @@ async def client(app):
 
 
 @pytest.fixture
+async def new_client(app):
+    """Factory for additional clients, each with its own cookie jar (several people at once)."""
+    created = []
+
+    def make(origin: str | None = ORIGIN) -> httpx.AsyncClient:
+        headers = {"Origin": origin} if origin else {}
+        c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN, headers=headers)
+        created.append(c)
+        return c
+
+    yield make
+    for c in created:
+        await c.aclose()
+
+
+@pytest.fixture
+def login(new_client, mailer, sql):
+    """Sign a person in through the real flow (adds an allowlist entry for them first)."""
+    from tests.integration.helpers import add_allowlist, read_code
+
+    async def do(email: str, role: str = "user", entry: bool = True):
+        if entry:
+            add_allowlist(sql, email, role=role)
+        c = new_client()
+        assert (await c.post("/v1/auth/code/request", json={"email": email})).status_code == 202
+        response = await c.post("/v1/auth/code/verify", json={"email": email, "code": read_code(mailer, email)})
+        assert response.status_code == 200 and response.json()["status"] == "signed_in", response.text
+        return c
+
+    return do
+
+
+@pytest.fixture
 def captured_logs(caplog):
     """Everything the app logged during the test, as one string."""
     caplog.set_level(logging.DEBUG)

@@ -16,3 +16,11 @@ def add_allowlist(sql, value: str, kind: str = "email", role: str = "user") -> s
         (kind, value.lower(), role),
     ).fetchone()
     return str(row["id"])
+
+
+def add_user(sql, email: str, status: str = "pending", role: str = "user", reason: str | None = None) -> str:
+    row = sql.execute(
+        "INSERT INTO app.users (email, status, role, suspended_reason) VALUES (%s, %s, %s, %s) RETURNING id",
+        (email.lower(), status, role, reason),
+    ).fetchone()
+    return str(row["id"])

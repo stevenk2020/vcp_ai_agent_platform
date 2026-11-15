@@ -13,6 +13,7 @@ fi
 
 # Postgres of the test project must not clash with the live one on 127.0.0.1:5432
 export POSTGRES_PORT=55433
+export BUILDKIT_PROGRESS=quiet   # keep the output about the tests, not the image build
 args=(-p "$PROJECT" --profile test)
 
 cleanup() {
