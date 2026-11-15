@@ -28,6 +28,9 @@ jobs:
       - name: API tests (isolated project; the 30-second-style slow tests are skipped)
         run: make test-api ARGS="-m 'not slow'"
 
+      - name: Sync worker tests (isolated project, fake source)
+        run: make test-sync ARGS="-m 'not slow'"
+
       - name: Scan for committed secrets
         run: make scan-secrets
 

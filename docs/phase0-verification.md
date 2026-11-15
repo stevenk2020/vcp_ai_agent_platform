@@ -1,8 +1,12 @@
 # Phase 0 verification items: `dbo.sales_contract`
 
 These four questions about the source system decide how the sync worker is built. They are open
-until someone answers them with evidence. **The sync-worker feature must not start until all four
-are `resolved`** (constitution, Development Workflow; spec FR-015 and SC-007).
+until someone answers them with evidence. **The sync-worker feature may start when V-1, V-2 and V-3
+are `resolved`.** V-4 (snapshot isolation on the source) is an optional improvement: the worker
+works without it (it waits for the source's own commit) and switches to snapshot reads through the
+setting `SOURCE_SNAPSHOT_READ=on` once the DBA enables it. Amended 2026-11-15 (feature 004, task T005):
+the constitution (Development Workflow) names only the real row counts and the one-transaction question,
+both answered; the earlier wording required every item.
 
 Status values: `open`, `in_progress`, `resolved`.
 

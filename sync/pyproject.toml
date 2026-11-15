@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-platform-sync"
+version = "0.1.0"
+description = "Sync worker: copies source tables from SQL Server into the platform Postgres (serving schema)"
+requires-python = ">=3.12"
+dependencies = [
+    "pymssql>=2.3",
+    "apscheduler>=3.10,<4",
+    "psycopg[binary]>=3.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[tool.setuptools.packages.find]
+include = ["sync*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: tests that take a long time",
+]

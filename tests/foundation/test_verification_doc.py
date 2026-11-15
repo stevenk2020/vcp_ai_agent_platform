@@ -43,4 +43,12 @@ def test_resolved_items_carry_a_finding_and_date():
 
 def test_doc_states_the_sync_worker_gate():
     text = DOC.read_text(encoding="utf-8")
-    assert "sync-worker feature must not start until all four" in text
+    assert "sync-worker feature may start when V-1, V-2 and V-3" in text
+    assert "must not start until" not in text
+
+
+def test_the_gate_is_met_v1_to_v3_resolved_and_v4_may_be_any_valid_status():
+    rows = {row["id"]: row for row in _rows()}
+    for item in ("V-1", "V-2", "V-3"):
+        assert rows[item]["status"] == "resolved", item
+    assert rows["V-4"]["status"] in VALID_STATUS

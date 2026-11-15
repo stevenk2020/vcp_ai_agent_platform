@@ -52,6 +52,14 @@ TEMPLATE
   echo "created: api_external (template, fill in SMTP and Google values)"
 fi
 
+# Source SQL Server credentials for the sync worker (KEY=value lines). Created EMPTY; fill it with
+# `make source-secret` (copies the values from .env) or by hand. Never overwritten.
+if [[ ! -e secrets/source_sqlserver ]]; then
+  : > secrets/source_sqlserver
+  chmod 600 secrets/source_sqlserver
+  echo "created: source_sqlserver (empty; run 'make source-secret' to fill it from .env)"
+fi
+
 for operator_file in backup_age_public_key rclone_config; do
   if [[ ! -s "secrets/${operator_file}" ]]; then
     echo "note: secrets/${operator_file} not provided yet (operator-provided; backup stays disabled)"

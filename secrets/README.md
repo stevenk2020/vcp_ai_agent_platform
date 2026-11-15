@@ -27,3 +27,9 @@ Rotating a password: edit the file, then `make up` (the bootstrap step re-applie
 
 The source SQL Server credentials stay in `.env` (also ignored) and are not used by any service in
 this feature.
+
+## Added by feature 004 (sync worker)
+
+| File | Created by | Consumers |
+| --- | --- | --- |
+| `source_sqlserver` | **operator** (`make source-secret` copies `sql_server_*` from `.env`; `make secrets` creates an empty file so the stack starts) | `sync` (and `sync-test`) only. Lines: `SQL_SERVER_HOST`, `SQL_SERVER_PORT`, `SQL_SERVER_USER`, `SQL_SERVER_PASSWORD`, `SQL_SERVER_DATABASE`. While empty, the worker idles. |

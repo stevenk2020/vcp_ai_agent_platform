@@ -30,6 +30,8 @@ secrets:
     file: ./secrets/auth_pepper
   api_external:
     file: ./secrets/api_external
+  source_sqlserver:
+    file: ./secrets/source_sqlserver
 
 services:
   postgres:
@@ -135,6 +137,7 @@ services:
       VERIFY_RATE_PER_IP: ${VERIFY_RATE_PER_IP:-30}
       SESSION_DAYS: ${SESSION_DAYS:-7}
       MAIL_CAPTURE_TTL_MINUTES: ${MAIL_CAPTURE_TTL_MINUTES:-60}
+      SYNC_REQUEST_TTL_MINUTES: ${SYNC_REQUEST_TTL_MINUTES:-15}
     secrets:
       - api_rw_password
       - auth_pepper
@@ -151,6 +154,68 @@ services:
       timeout: 5s
       retries: 6
       start_period: 15s
+
+  # The sync worker (specs/004-sales-contract-sync): copies dbo.sales_contract from SQL Server into
+  # serving.sales_contract. Only this service holds the source credentials. With an empty
+  # secrets/source_sqlserver it idles (healthy) and says so in its log.
+  sync:
+    build:
+      context: ./sync
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+      SYNC_INTERVAL_MINUTES: ${SYNC_INTERVAL_MINUTES:-10}
+      SYNC_POLL_SECONDS: ${SYNC_POLL_SECONDS:-5}
+      SOURCE_SNAPSHOT_READ: ${SOURCE_SNAPSHOT_READ:-off}
+      SOURCE_READ_TIMEOUT_SECONDS: ${SOURCE_READ_TIMEOUT_SECONDS:-300}
+      SOURCE_ENCRYPT: ${SOURCE_ENCRYPT:-require}
+      SYNC_RETRY_ATTEMPTS: ${SYNC_RETRY_ATTEMPTS:-3}
+      SYNC_RETRY_BASE_SECONDS: ${SYNC_RETRY_BASE_SECONDS:-15}
+      GUARD_MIN_FRACTION: ${GUARD_MIN_FRACTION:-0.5}
+      GUARD_MIN_ROWS: ${GUARD_MIN_ROWS:-1000}
+      SWAP_LOCK_TIMEOUT_SECONDS: ${SWAP_LOCK_TIMEOUT_SECONDS:-15}
+      SYNC_STALE_MINUTES: ${SYNC_STALE_MINUTES:-30}
+      SYNC_FAILING_AFTER: ${SYNC_FAILING_AFTER:-3}
+      SYNC_LOG_RETENTION_DAYS: ${SYNC_LOG_RETENTION_DAYS:-30}
+      SYNC_REQUEST_TTL_MINUTES: ${SYNC_REQUEST_TTL_MINUTES:-15}
+    secrets:
+      - sync_writer_password
+      - source_sqlserver
+    tmpfs:
+      - /run/sync-secrets:mode=0500
+    networks:
+      - platform
+    healthcheck:
+      test: ["CMD", "python", "-m", "sync", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Tests for the sync worker. Only used through `make test-sync`, in an isolated Compose project.
+  sync-test:
+    build:
+      context: ./sync
+      target: test
+    profiles: ["test"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+      API_TEST_ISOLATED: ${API_TEST_ISOLATED:-0}
+    secrets:
+      - sync_writer_password
+      - source_sqlserver
+      - app_owner_password
+    networks:
+      - platform
 
   # Integration tests for the API. Only used through `make test-api`, in an isolated Compose project.
   api-test:
@@ -171,11 +236,17 @@ services:
       MAIL_BACKEND: capture
       PUBLIC_ORIGIN: https://test.example
       API_TEST_ISOLATED: ${API_TEST_ISOLATED:-0}
+      SYNC_REQUEST_TTL_MINUTES: ${SYNC_REQUEST_TTL_MINUTES:-15}
     secrets:
       - api_rw_password
       - auth_pepper
       - api_external
       - app_owner_password
+      - sync_writer_password
+    volumes:
+      # the admin sync tests create the control tables from the worker's own SQL (as sync_writer)
+      - ./sync/sql:/sync-sql:ro
+      - ./sync/tests/state_cases.json:/sync-tests/state_cases.json:ro
     networks:
       - platform
 

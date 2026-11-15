@@ -58,3 +58,15 @@ migrations: `SELECT, INSERT, UPDATE, DELETE` on `app.users`, `app.allowlist`, `a
 `app.sessions`, and only `SELECT, INSERT` on `app.audit_events` (append-only). It has no access to `serving`,
 `kb` or `public`, no default privileges, no role settings. See
 `specs/002-passwordless-auth/data-model.md` for the table list.
+
+## Amendment 2026-11-15 (feature 004, sync worker)
+
+- `api_rw` gains `USAGE` on schema `serving` (bootstrap), and explicit table rights granted by the worker's
+  `sync/sql/control.sql`: `SELECT` on `serving.sync_state` and `serving.sync_runs`, `SELECT` and `INSERT` on
+  `serving.sync_requests`. Nothing else in `serving`; in particular no right on the copied data tables.
+- `agent_ro` keeps `SELECT` on every table in `serving` through the default privileges, except that
+  `control.sql` revokes it on `serving.sync_runs` and `serving.sync_requests` (the agent needs only
+  `serving.sync_state`, for `data_as_of`).
+- `sync_writer` stays the only role that creates, writes, renames and drops objects in `serving` (the worker creates
+  the copy and its control tables itself; `app_owner` still cannot touch `serving`).
+- Proven by `tests/foundation/test_permissions.py` and `sync/tests/test_control_sql.py`.

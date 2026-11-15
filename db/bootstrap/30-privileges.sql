@@ -34,3 +34,8 @@ GRANT USAGE ON SCHEMA public TO app_owner, sync_writer;
 -- api_rw (the API service): may use schema app; table rights are granted per table by migrations,
 -- nothing on serving, kb or public.
 GRANT USAGE ON SCHEMA app TO api_rw;
+
+-- Feature 004 (sync worker): the API may see the schema serving so it can read the sync control tables
+-- (serving.sync_state, serving.sync_runs, serving.sync_requests). Table rights are granted by the worker's
+-- own sync/sql/control.sql, per table. api_rw gets NO right on the copied data tables.
+GRANT USAGE ON SCHEMA serving TO api_rw;

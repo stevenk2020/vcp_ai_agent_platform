@@ -23,10 +23,10 @@ MIN_COMPOSE := 2.29.0
 # `up -d --build` (rebuilds changed images, so a code change is never served by a stale image) and then
 # runs scripts/wait-healthy.sh (healthy for long-running, exit 0 for one-shot).
 
-.PHONY: help secrets check-compose up up-prod down migrate backup restore-test test test-api scan-secrets
+.PHONY: help secrets check-compose up up-prod down migrate backup restore-test test test-api test-sync scan-secrets source-secret sync-status sync-now
 
 help:
-	@echo "targets: secrets up up-prod down migrate backup restore-test test scan-secrets"
+	@echo "targets: secrets up up-prod down migrate backup restore-test test test-api test-sync scan-secrets source-secret sync-status sync-now"
 
 secrets:
 	@bash scripts/gen-secrets.sh
@@ -68,3 +68,15 @@ test-api:
 
 scan-secrets:
 	@bash scripts/scan-secrets.sh
+
+test-sync:
+	@ARGS="$(ARGS)" bash scripts/test-sync.sh
+
+source-secret:
+	@bash scripts/source-secret-from-env.sh $(ARGS)
+
+sync-status:
+	@$(DC) exec -T sync python -m sync status
+
+sync-now:
+	@$(DC) exec -T sync python -m sync run sales_contract $(ARGS)
