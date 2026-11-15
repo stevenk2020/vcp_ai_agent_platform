@@ -9,8 +9,8 @@ Status values: `open`, `in_progress`, `resolved`.
 | id | question | owner | status | finding | date |
 | --- | --- | --- | --- | --- | --- |
 | V-1 | Obtain read access to the source SQL Server with a read-only account (check what the current account in `.env` can do) | Kien | resolved | The account in `.env` is SELECT-only: not sysadmin, not db_owner (confirmed by the operator). The SQL Server port is reachable from this VPS (TCP check only, no login attempted from here yet). | 2026-11-15 |
-| V-2 | Measure the real row count and the delete-insert cycle of `dbo.sales_contract` (how often it runs, how long the table is empty or partial) | Kien | answered | About 40k rows. The job runs about every 10 minutes; each run takes about 2 minutes (operator, 2026-11-15). | 2026-11-15 |
-| V-3 | Does the source delete-insert job run in a single transaction? (ask the table owner) | Kien | answered | Yes: the DELETE and the INSERT run in one commit (operator, 2026-11-15). With read-committed isolation a reader is blocked until the commit, not shown an empty table; verify with the sync design. | 2026-11-15 |
+| V-2 | Measure the real row count and the delete-insert cycle of `dbo.sales_contract` (how often it runs, how long the table is empty or partial) | Kien | resolved | About 40k rows. The job runs about every 10 minutes; each run takes about 2 minutes (operator, 2026-11-15). | 2026-11-15 |
+| V-3 | Does the source delete-insert job run in a single transaction? (ask the table owner) | Kien | resolved | Yes: the DELETE and the INSERT run in one commit (operator, 2026-11-15). With read-committed isolation a reader is blocked until the commit, not shown an empty table; verify with the sync design. | 2026-11-15 |
 | V-4 | Can the DBA enable snapshot isolation (`ALLOW_SNAPSHOT_ISOLATION`) on the source database? | Kien | in_progress | Request sent to the DBA; still OFF as of 2026-11-15. Operator will report when it is ON. | 2026-11-15 |
 
 ## How to record a finding
