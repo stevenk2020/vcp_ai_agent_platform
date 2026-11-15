@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.admin import service
@@ -67,3 +67,14 @@ async def suspend(user_id: UUID, request: Request, actor: CurrentUser = Depends(
 @router.post("/users/{user_id}/role")
 async def change_role(user_id: UUID, body: RoleBody, request: Request, actor: CurrentUser = Depends(admin_only)):
     return await service.set_role(request.app.state, actor, user_id, body.role, client_ip(request))
+
+
+@router.get("/audit")
+async def read_audit(
+    request: Request,
+    limit: int = Query(100, ge=1, le=500),
+    action: str | None = None,
+    before: int | None = Query(None, ge=1),
+    _: CurrentUser = Depends(admin_only),
+):
+    return {"items": await service.read_audit(request.app.state, limit, action, before)}

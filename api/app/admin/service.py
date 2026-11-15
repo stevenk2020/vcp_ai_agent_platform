@@ -140,9 +140,10 @@ async def remove_entry(state, actor: CurrentUser, entry_id: UUID, ip: str | None
                     (now, person["id"]),
                 )
                 revoked = await _revoke_sessions(conn, state, person["id"], "allowlist_removed")
-                await audit.record(conn, clock, "session_revoked", actor_user_id=actor.id, actor_email=actor.email,
-                                   target=person["email"], ip=ip,
-                                   detail={"reason": "allowlist_removed", "sessions": revoked})
+                if revoked:
+                    await audit.record(conn, clock, "session_revoked", actor_user_id=actor.id,
+                                       actor_email=actor.email, target=person["email"], ip=ip,
+                                       detail={"reason": "allowlist_removed", "sessions": revoked})
     if blocked:
         raise last_admin()
 
@@ -198,8 +199,10 @@ async def _change_user(state, actor: CurrentUser, user_id: UUID, ip: str | None,
                                target=user["email"], ip=ip, detail=detail)
             if revoke_reason:
                 revoked = await _revoke_sessions(conn, state, user_id, revoke_reason)
-                await audit.record(conn, clock, "session_revoked", actor_user_id=actor.id, actor_email=actor.email,
-                                   target=user["email"], ip=ip, detail={"reason": revoke_reason, "sessions": revoked})
+                if revoked:
+                    await audit.record(conn, clock, "session_revoked", actor_user_id=actor.id,
+                                       actor_email=actor.email, target=user["email"], ip=ip,
+                                       detail={"reason": revoke_reason, "sessions": revoked})
     if blocked:
         raise last_admin()
     return _user(updated)
@@ -223,3 +226,34 @@ async def suspend(state, actor, user_id, ip):
 async def set_role(state, actor, user_id, role: str, ip):
     return await _change_user(state, actor, user_id, ip, new_status=None, new_role=role, reason=None,
                               audit_action="role_changed", revoke_reason=None)
+
+
+# ---- audit trail (read only) -------------------------------------------------------------------
+
+async def read_audit(state, limit: int, action: str | None, before: int | None) -> list[dict]:
+    if action is not None and action not in audit.ACTIONS:
+        raise _invalid("Unknown action.")
+    clauses, params = [], []
+    if action:
+        clauses.append("action = %s")
+        params.append(action)
+    if before:
+        clauses.append("id < %s")
+        params.append(before)
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    async with state.db.pool.connection() as conn:
+        cursor = await conn.execute(
+            "SELECT id, at, actor_user_id, actor_email, action, target, outcome, host(ip) AS ip, detail "
+            f"FROM app.audit_events{where} ORDER BY id DESC LIMIT %s",
+            (*params, limit),
+        )
+        rows = await cursor.fetchall()
+    return [
+        {
+            "id": r["id"], "at": _iso(r["at"]),
+            "actor_user_id": str(r["actor_user_id"]) if r["actor_user_id"] else None,
+            "actor_email": r["actor_email"], "action": r["action"], "target": r["target"],
+            "outcome": r["outcome"], "ip": r["ip"], "detail": r["detail"],
+        }
+        for r in rows
+    ]

@@ -192,12 +192,12 @@ description: "Task list for 002-passwordless-auth"
 
 ### Tests for User Story 7
 
-- [ ] T041 [P] [US7] Write `api/tests/integration/test_audit.py` covering: each action name in data-model.md "Action names" is produced exactly once by one scripted scenario (parametrised table of scenario step to expected action, actor, outcome and IP); `GET /v1/admin/audit` returns newest first, honours `limit` (1 to 500), `action` and `before`, and requires the admin role; audit rows cannot be updated or deleted by the API role; after a full run of the sign-in, Google and admin flows, search every auth table, `audit_events.detail` and the captured log output for each code, session token and Google token used and find none readable (hashes and HMACs only)
+- [X] T041 [P] [US7] Write `api/tests/integration/test_audit.py` covering: each action name in data-model.md "Action names" is produced exactly once by one scripted scenario (parametrised table of scenario step to expected action, actor, outcome and IP); `GET /v1/admin/audit` returns newest first, honours `limit` (1 to 500), `action` and `before`, and requires the admin role; audit rows cannot be updated or deleted by the API role; after a full run of the sign-in, Google and admin flows, search every auth table, `audit_events.detail` and the captured log output for each code, session token and Google token used and find none readable (hashes and HMACs only)
 
 ### Implementation for User Story 7
 
-- [ ] T042 [US7] Implement `GET /v1/admin/audit` in `api/app/admin/routes.py` and `api/app/admin/service.py` (query parameters `limit`, `action`, `before`; items without secrets); fill any audit gap the tests expose in `api/app/auth/service.py`, `api/app/admin/service.py` and `api/app/cli.py` so every action name in data-model.md is recorded once
-- [ ] T043 [US7] Run `make test-api ARGS="-k audit"`, then the whole `make test-api`; fix; commit
+- [X] T042 [US7] Implement `GET /v1/admin/audit` in `api/app/admin/routes.py` and `api/app/admin/service.py` (query parameters `limit`, `action`, `before`; items without secrets); fill any audit gap the tests expose in `api/app/auth/service.py`, `api/app/admin/service.py` and `api/app/cli.py` so every action name in data-model.md is recorded once
+- [X] T043 [US7] Run `make test-api ARGS="-k audit"`, then the whole `make test-api`; fix; commit
 
 **Checkpoint**: All seven user stories complete
 
