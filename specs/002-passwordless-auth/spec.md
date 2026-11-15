@@ -6,7 +6,21 @@
 
 **Status**: Draft
 
+**Amendments**: see the "Amendments" section below (2026-11-15).
+
 **Input**: User description: "Passwordless sign-in with an admin allowlist (Phase 0 auth) for the AI Agent Platform. Only people an admin has approved can sign in, without any password, and an admin can remove access at any time with immediate effect. Sign in with an emailed 6-digit code or with Google; one allowlist gate for both; no leaking of who is allowed; abuse limits; 7-day sessions that are revoked immediately on removal; three roles; a one-time way to create the first admin; email delivery with local capture in development and tests; and an audit trail that never stores codes or tokens in readable form."
+
+## Amendments
+
+- **2026-11-15 — waiting session (feature 003).** The operator wants a person whose sign-in ends *pending* to hold a
+  session so the web pages can show their status and let them submit an access request. FR-008 originally said "MUST NOT
+  create a session". It now reads: the system creates the account in a pending state, creates only a **waiting session**
+  that grants no protected action, and shows the person in the approval queue. Every protected action (`/v1/me`, all
+  `/v1/admin/*`, and anything added later) still requires an *active* person and refuses a waiting session exactly as it
+  refuses no session. Only `GET /v1/access`, `POST /v1/access/request` and sign-out accept it. Rejecting or suspending a
+  person, or removing their allowlist entry, ends it like any other session. See `specs/003-web-sign-in-admin-ui/spec.md`
+  (FR-004, FR-006) and constitution v1.0.1. The original wording below is kept where history matters and marked
+  *(amended)*.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -50,16 +64,16 @@ An admin adds an email address or a whole email domain to the allowlist with a d
 
 ### User Story 3 - Unapproved people are kept out without learning who is approved (Priority: P1)
 
-A person who is not on the allowlist can still try to sign in and prove their email, but gets no session and ends up in the approval queue. The sign-in form never reveals whether an email is allowed.
+A person who is not on the allowlist can still try to sign in and prove their email, but gets only a waiting session (no access to anything protected) and ends up in the approval queue. *(amended)* The sign-in form never reveals whether an email is allowed.
 
 **Why this priority**: It protects the list of approved people and still gives admins a way to discover new requests.
 
-**Independent Test**: Submit one allowlisted and one non-allowlisted email through the sign-in form and compare the responses and timing; then confirm the non-allowlisted person has no access and shows up as pending.
+**Independent Test**: Submit one allowlisted and one non-allowlisted email through the sign-in form and compare the responses and timing; then confirm the non-allowlisted person has no access (every protected action refuses their waiting session) and shows up as pending. *(amended)*
 
 **Acceptance Scenarios**:
 
 1. **Given** an email that is not on the allowlist, **When** the person requests a code, **Then** the form's response is the same as for an allowlisted email.
-2. **Given** a non-allowlisted email whose owner enters a valid code, **When** the code is checked, **Then** no session is created, the account is marked pending and appears in the approval queue.
+2. **Given** a non-allowlisted email whose owner enters a valid code, **When** the code is checked, **Then** only a waiting session is created, the account is marked pending and appears in the approval queue. *(amended)*
 3. **Given** a pending person, **When** they try to reach a protected action, **Then** it is refused until an admin approves them.
 4. **Given** repeated requests for allowlisted and non-allowlisted emails, **When** their response times are compared, **Then** no consistent difference reveals which is which.
 
@@ -76,7 +90,7 @@ A person can choose "Sign in with Google" instead of the emailed code. Only an e
 **Acceptance Scenarios**:
 
 1. **Given** a Google account whose email is verified and allowlisted, **When** the person signs in with Google, **Then** a session is created with the entry's role.
-2. **Given** a Google account whose email is verified but not allowlisted, **When** the person signs in, **Then** no session is created and they appear in the approval queue.
+2. **Given** a Google account whose email is verified but not allowlisted, **When** the person signs in, **Then** only a waiting session is created and they appear in the approval queue. *(amended)*
 3. **Given** a Google account whose email is not verified, **When** the person signs in, **Then** they are refused and nothing is created.
 4. **Given** the same email used through both paths, **When** the person signs in either way, **Then** they are the same user with the same role.
 
@@ -139,7 +153,7 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - Mail delivery fails: the person is told to try again later, no code stays valid that was never sent, and the failure is audited.
 - Email codes are switched off: requesting a code is refused as "not available", nothing is sent or stored, and Google sign-in is unaffected.
 - Two sign-ins at the same time with the same code: only one succeeds.
-- A person with a pending account signs in again before being approved: still no session, still one entry in the queue.
+- A person with a pending account signs in again before being approved: still only a waiting session, still one entry in the queue. *(amended)*
 - A Google account's email changes after sign-up: the user is identified by the verified email at each sign-in.
 - Cookies are blocked or the browser is closed: the person simply signs in again.
 
@@ -154,7 +168,7 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - **FR-005**: Requesting a new code MUST cancel any earlier unused code for the same email.
 - **FR-006**: The system MUST let a person sign in with Google, and MUST accept only an email address that Google reports as verified.
 - **FR-007**: After an email is proven by either path, the system MUST check the allowlist; if allowed it MUST create a session with the entry's default role.
-- **FR-008**: If the email is not allowed, the system MUST create the account in a pending state, MUST NOT create a session, and MUST show the person in an admin approval queue.
+- **FR-008**: If the email is not allowed, the system MUST create the account in a pending state, MUST create only a *waiting session* that grants no protected action (see Amendments), and MUST show the person in an admin approval queue. *(amended)*
 - **FR-009**: The system MUST let an admin approve a pending person (choosing a role) or reject them, and MUST let an admin change a user's role or suspend a user.
 - **FR-010**: When an email is removed from the allowlist, or a user is rejected or suspended, all of that user's sessions MUST stop working no later than their next request.
 - **FR-011**: The sign-in form MUST give the same response, and no consistent timing difference, whether or not the email is allowlisted.

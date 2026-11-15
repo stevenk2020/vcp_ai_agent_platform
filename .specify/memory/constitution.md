@@ -6,9 +6,12 @@
 The agent MUST only be able to do what the user it is chatting with is allowed to do. Every tool
 call MUST carry the user's identity (short-lived JWT signed by the Agent Platform), and the target
 service MUST enforce ACLs itself; permissions MUST NOT be enforced only in prompts. Authentication
-is passwordless (email code or Google OAuth) and every path MUST pass the admin allowlist; removing
-an email from the allowlist MUST revoke all of that user's sessions. Login responses MUST NOT reveal
-whether an email is on the allowlist.
+is passwordless (email code or Google OAuth) and every path to an approved session MUST pass the
+admin allowlist; removing an email from the allowlist MUST revoke all of that user's sessions. Login
+responses MUST NOT reveal whether an email is on the allowlist. An unapproved person MAY hold a
+*waiting session* that only allows reading their own status, submitting an access request and
+signing out; every other protected action MUST still require an approved (active) person, and
+removing, rejecting or suspending a person MUST end the waiting session like any other.
 Rationale: no content filter stops all prompt injection, so privilege limits are the primary defense
 (spec §7).
 
@@ -103,4 +106,6 @@ guidance, PATCH for clarifications. Every plan MUST include a Constitution Check
 principles, and every review MUST verify compliance; any violation MUST be recorded and justified
 in the plan's complexity tracking or the work is rejected.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-15 | **Last Amended**: 2026-11-15
+**Version**: 1.0.1 | **Ratified**: 2026-11-15 | **Last Amended**: 2026-11-15
+
+**Sync Impact (1.0.1, PATCH)**: Principle I clarified for the waiting session (feature 003). Checked: spec 002 FR-008 and its scenarios, 002 contracts/http-api.md, quickstart.md and tasks.md (amended, see the 002 Amendments section), spec 003 FR-004/FR-006; docs/auth.md and README are updated in feature 003 task T038. No other principle changed.

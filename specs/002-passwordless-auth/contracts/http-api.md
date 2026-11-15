@@ -41,7 +41,7 @@ Body: `{"email": "...", "code": "123456"}` (`code` is exactly 6 digits).
 | Result | Meaning |
 | --- | --- |
 | `200` `{"status": "signed_in", "role": "user"}` + `Set-Cookie` | Code correct; email is allowlisted, already active, or was suspended only by allowlist removal and an entry matches again |
-| `200` `{"status": "pending"}` (no cookie) | Code correct; not allowlisted; now in the approval queue |
+| `200` `{"status": "pending"}` + `Set-Cookie` (waiting session, amended 2026-11-15) | Code correct; not allowlisted; now in the approval queue; the cookie opens only `GET /v1/access`, `POST /v1/access/request` and logout |
 | `200` `{"status": "refused"}` (no cookie) | Code correct, but an admin suspended or rejected the account |
 | `401 invalid_or_expired_code` | Wrong, expired, already used, cancelled or locked code (all identical) |
 | `429 rate_limited` | Too many verify attempts from this IP |
@@ -58,7 +58,7 @@ holding the state and verifier. `503 not_configured` when no Google client is co
 
 Verifies `state`, exchanges the code, verifies the ID token (signature, issuer, audience, expiry) and
 requires `email_verified = true`. Outcomes mirror `verify`: a redirect to `/?signin=ok` with the
-session cookie, `/?signin=pending`, or `/?signin=refused`; any failure redirects to `/?signin=error`
+session cookie, `/?signin=pending` (also with a waiting-session cookie), or `/?signin=refused`; any failure redirects to `/?signin=error`
 (unverified email, bad state, provider error). Google tokens are discarded and never stored or logged.
 
 ### `POST /v1/auth/logout`

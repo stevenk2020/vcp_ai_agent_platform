@@ -15,6 +15,10 @@ FORBIDDEN_KEYS = frozenset(
     {"code", "token", "password", "secret", "cookie", "authorization", "pepper", "id_token", "access_token"}
 )
 
+# audit `detail` additionally never carries an access request's own text (only has_name / has_reason flags);
+# "name" is not in FORBIDDEN_KEYS because the log filter strips those from log records and LogRecord has a `name`
+DETAIL_FORBIDDEN_KEYS = FORBIDDEN_KEYS | {"name", "reason_text"}
+
 ACTIONS = frozenset(
     {
         "code_requested", "code_send_failed", "code_verified", "code_failed", "code_locked",
@@ -30,7 +34,7 @@ ACTIONS = frozenset(
 def _check_detail(value: Any, path: str = "detail") -> None:
     if isinstance(value, dict):
         for key, inner in value.items():
-            if str(key).lower() in FORBIDDEN_KEYS:
+            if str(key).lower() in DETAIL_FORBIDDEN_KEYS:
                 raise ValueError(f"audit {path} must not contain the key {key!r}")
             _check_detail(inner, f"{path}.{key}")
     elif isinstance(value, (list, tuple)):

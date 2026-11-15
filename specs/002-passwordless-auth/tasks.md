@@ -109,7 +109,7 @@ description: "Task list for 002-passwordless-auth"
 
 ## Phase 5: User Story 3 - Unapproved people are kept out without learning who is approved (Priority: P1)
 
-**Goal**: Non-allowlisted people prove their email, land in the queue with no session, and the form never reveals who is allowed.
+**Goal**: Non-allowlisted people prove their email, land in the queue with only a waiting session (amended 2026-11-15), and the form never reveals who is allowed.
 
 **Independent Test**: Compare responses and timing for an allowlisted and a non-allowlisted email; the second ends up pending with no access.
 

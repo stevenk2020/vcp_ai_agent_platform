@@ -110,6 +110,12 @@ BAD_ROWS = {
         "VALUES (%s, '\\x01', now(), 6)", ("mail",)),
     "email code uppercase email": (
         "INSERT INTO app.email_codes (email, code_hmac, expires_at) VALUES ('UP@Example.Test', '\\x01', now())", ()),
+    "access request name longer than 80": (
+        "INSERT INTO app.users (email, name) VALUES (%s, repeat('n', 81))", ("mail",)),
+    "access request empty name": ("INSERT INTO app.users (email, name) VALUES (%s, '')", ("mail",)),
+    "access request reason longer than 500": (
+        "INSERT INTO app.users (email, request_reason) VALUES (%s, repeat('r', 501))", ("mail",)),
+    "access request empty reason": ("INSERT INTO app.users (email, request_reason) VALUES (%s, '')", ("mail",)),
     "audit unknown outcome": (
         "INSERT INTO app.audit_events (at, action, outcome) VALUES (now(), 'schema_test', 'maybe')", ()),
 }
@@ -160,3 +166,22 @@ def test_deleting_a_user_cascades_to_sessions_and_nulls_added_by(api_rw):
     assert api_rw.execute(
         "SELECT added_by FROM app.allowlist WHERE value = %s", (entry_value,)
     ).fetchone() == (None,)
+
+
+def test_access_request_columns_accept_the_limits_and_api_rw_can_write_them(api_rw):
+    email = mail()
+    user_id = api_rw.execute(
+        "INSERT INTO app.users (email, name, request_reason, request_submitted_at) "
+        "VALUES (%s, repeat('n', 80), repeat('r', 500), now()) RETURNING id", (email,)
+    ).fetchone()[0]
+    api_rw.execute("UPDATE app.users SET name = NULL, request_reason = NULL WHERE id = %s", (user_id,))
+    assert api_rw.execute(
+        "SELECT name, request_reason, request_submitted_at IS NOT NULL FROM app.users WHERE id = %s", (user_id,)
+    ).fetchone() == (None, None, True)
+
+
+def test_the_access_request_migration_is_recorded_once(app_owner):
+    rows = app_owner.execute(
+        "SELECT count(*) FROM app.schema_migrations WHERE version = '20261115020000'"
+    ).fetchone()
+    assert rows == (1,)

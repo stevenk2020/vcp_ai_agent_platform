@@ -31,4 +31,6 @@ docker compose "${args[@]}" up -d postgres redis db-init migrate
 WAIT_SERVICES="postgres redis db-init migrate" bash scripts/wait-healthy.sh "${args[@]}"
 
 # shellcheck disable=SC2086
-docker compose "${args[@]}" run --rm -e API_TEST_ISOLATED=1 api-test pytest ${ARGS:-}
+# ARGS may contain quoted words (e.g. -k 'a or b'); let the shell interpret the quotes once
+eval "set -- ${ARGS:-}"
+docker compose "${args[@]}" run --rm -e API_TEST_ISOLATED=1 api-test pytest "$@"

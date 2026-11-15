@@ -15,6 +15,21 @@ async def test_record_rejects_secret_keys_before_touching_the_database():
         await record(None, FakeClock(), "code_requested", detail={"nested": {"secret": "x"}})
 
 
+@pytest.mark.skipif("access_requested" not in __import__("app.audit", fromlist=["ACTIONS"]).ACTIONS,
+                    reason="the access_requested action arrives with the access request endpoint (T019)")
+async def test_access_requested_detail_never_carries_text():
+    # only flags are allowed in the detail; the request's own text must never be written to the audit trail
+    for key in ("name", "reason_text"):
+        with pytest.raises(ValueError, match="must not contain"):
+            await record(None, FakeClock(), "access_requested", detail={key: "typed text"})
+
+
+async def test_access_text_keys_are_forbidden_in_every_audit_detail():
+    for key in ("name", "reason_text"):
+        with pytest.raises(ValueError, match="must not contain"):
+            await record(None, FakeClock(), "code_requested", detail={key: "x"})
+
+
 async def test_record_rejects_unknown_actions():
     with pytest.raises(ValueError, match="unknown audit action"):
         await record(None, FakeClock(), "made_up")

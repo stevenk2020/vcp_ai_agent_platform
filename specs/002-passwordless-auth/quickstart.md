@@ -59,7 +59,7 @@ As the admin (cookie from scenario 2, `Origin` header set to the public origin):
 2. Sign in as alice (request, verify): `signed_in`, role `user`.
 3. As alice call `GET /v1/admin/allowlist`: `403 forbidden`.
 4. As admin `DELETE /v1/admin/allowlist/{id}`; as alice `GET /v1/me`: `401` on the very next request. Add the entry again: alice can sign in again. Suspend someone by hand and add them to the allowlist: they stay blocked until approved.
-5. Sign in as `bob@example.com` (not allowlisted): verify returns `200 pending`, no cookie; bob's
+5. Sign in as `bob@example.com` (not allowlisted): verify returns `200 pending` with a waiting-session cookie (opens nothing protected: `/v1/me` is still 401); bob's
    `GET /v1/me` is `401`; `GET /v1/admin/users?status=pending` lists bob; approve him with a role and he
    can sign in; reject someone else and they cannot.
 

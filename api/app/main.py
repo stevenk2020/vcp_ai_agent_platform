@@ -19,6 +19,7 @@ from app.errors import ApiError
 from app.google import build_identity
 from app.mailer import Mailer, build_mailer
 from app.rate_limit import RateLimiter
+from app.security_headers import SecurityHeadersMiddleware
 
 log = logging.getLogger("app")
 
@@ -108,6 +109,9 @@ def create_app(
             log.warning("health: redis check failed")
         body = {"status": "ok" if db_ok and redis_ok else "unavailable", "mail_backend": settings.mail_backend}
         return JSONResponse(body, status_code=200 if db_ok and redis_ok else 503)
+
+    # outermost on purpose: added after origin_guard so the guard's own 403 also carries the headers
+    app.add_middleware(SecurityHeadersMiddleware, production=settings.app_env == "production")
 
     from app.admin.routes import router as admin_router
     from app.auth.routes import router as auth_router
