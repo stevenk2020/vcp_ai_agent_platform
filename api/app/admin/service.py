@@ -35,6 +35,8 @@ def _user(row) -> dict:
     return {
         "id": str(row["id"]), "email": row["email"], "role": row["role"], "status": row["status"],
         "created_at": _iso(row["created_at"]), "last_login_at": _iso(row["last_login_at"]),
+        "name": row["name"], "request_reason": row["request_reason"],
+        "request_submitted_at": _iso(row["request_submitted_at"]),
     }
 
 
@@ -153,7 +155,7 @@ async def remove_entry(state, actor: CurrentUser, entry_id: UUID, ip: str | None
 async def list_users(state, status: str | None) -> list[dict]:
     if status is not None and status not in STATUSES:
         raise _invalid("Unknown status.")
-    sql = "SELECT id, email, role, status, created_at, last_login_at FROM app.users"
+    sql = "SELECT id, email, role, status, created_at, last_login_at, name, request_reason, request_submitted_at FROM app.users"
     params: tuple = ()
     if status:
         sql += " WHERE status = %s"
@@ -171,7 +173,8 @@ async def _change_user(state, actor: CurrentUser, user_id: UUID, ip: str | None,
     async with state.db.transaction() as conn:
         await _lock_admins(conn)
         cursor = await conn.execute(
-            "SELECT id, email, role, status, created_at, last_login_at FROM app.users WHERE id = %s FOR UPDATE",
+            "SELECT id, email, role, status, created_at, last_login_at, name, request_reason, request_submitted_at "
+            "FROM app.users WHERE id = %s FOR UPDATE",
             (user_id,),
         )
         user = await cursor.fetchone()
@@ -190,7 +193,7 @@ async def _change_user(state, actor: CurrentUser, user_id: UUID, ip: str | None,
             suspended_reason = reason if status == "suspended" else None
             cursor = await conn.execute(
                 "UPDATE app.users SET status = %s, role = %s, suspended_reason = %s, updated_at = %s WHERE id = %s "
-                "RETURNING id, email, role, status, created_at, last_login_at",
+                "RETURNING id, email, role, status, created_at, last_login_at, name, request_reason, request_submitted_at",
                 (status, role, suspended_reason, now, user_id),
             )
             updated = await cursor.fetchone()

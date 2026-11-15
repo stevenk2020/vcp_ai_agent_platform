@@ -36,6 +36,14 @@ def last_admin() -> ApiError:
     return ApiError(409, "last_admin", "This would leave the platform without an active admin.")
 
 
+def not_pending() -> ApiError:
+    return ApiError(409, "not_pending", "There is no request to make: you are already approved.")
+
+
+def already_handled() -> ApiError:
+    return ApiError(409, "already_handled", "Someone else already handled this person. Refresh the list.")
+
+
 def not_configured(message: str) -> ApiError:
     return ApiError(503, "not_configured", message)
 

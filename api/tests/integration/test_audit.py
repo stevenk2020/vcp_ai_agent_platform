@@ -157,12 +157,20 @@ async def test_first_admin_events(settings, clock, sql):
     assert only(sql, "first_admin_refused", "failure")["actor_email"] == "cli"
 
 
+async def test_access_requested_is_audited_once_with_actor_and_address(login_pending, sql):
+    c = await login_pending(ALICE)
+    await c.post("/v1/access/request", json={"name": "Alice", "reason": "needs data"}, headers=XFF)
+    row = only(sql, "access_requested")
+    assert row["actor_email"] == ALICE and row["target"] == ALICE and str(row["ip"]) == IP
+    assert row["detail"] == {"has_name": True, "has_reason": True}
+
+
 def test_every_action_name_has_a_scenario_above():
     covered = {
         "code_requested", "code_send_failed", "code_verified", "code_failed", "code_locked", "google_signin",
         "signin_pending", "signin_refused", "rate_limited", "session_created", "session_revoked", "signed_out",
         "allowlist_added", "allowlist_removed", "user_approved", "user_rejected", "user_suspended", "role_changed",
-        "first_admin_created", "first_admin_refused", "last_admin_blocked",
+        "first_admin_created", "first_admin_refused", "last_admin_blocked", "access_requested",
     }
     assert covered == set(audit.ACTIONS)
 

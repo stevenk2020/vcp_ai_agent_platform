@@ -4,8 +4,11 @@ waiting session: a person who is still pending."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.auth.deps import CurrentPerson, current_person
+from app.auth import service
+from app.auth.deps import CurrentPerson, client_ip, current_person
 
 router = APIRouter(prefix="/v1")
 
@@ -25,3 +28,18 @@ async def access_status(request: Request, person: CurrentPerson = Depends(curren
         "name": row["name"],
         "reason": row["request_reason"],
     }
+
+
+class AccessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(None, max_length=80)
+    reason: str | None = Field(None, max_length=500)
+
+
+@router.post("/access/request")
+async def submit_access_request(body: AccessRequest, request: Request,
+                                person: CurrentPerson = Depends(current_person)):
+    stored = await service.submit_request(request.app.state, person, body.name, body.reason, client_ip(request))
+    if stored:
+        return JSONResponse({"submitted": True}, status_code=201)
+    return {"submitted": False, "already_submitted": True}

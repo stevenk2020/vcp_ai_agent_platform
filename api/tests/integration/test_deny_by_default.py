@@ -23,7 +23,7 @@ PUBLIC = {
     ("GET", "/"), ("GET", "/static/{name:path}"),
 }
 # routes that must exist (they are part of the contract); a missing one is a failure, not a skip
-MUST_EXIST = (WAITING_ALLOWED | PUBLIC) - {("GET", "/"), ("GET", "/v1/access"), ("POST", "/v1/access/request")}
+MUST_EXIST = WAITING_ALLOWED | PUBLIC
 # page routes for admins: refusal is 302 (signed out) or 403 (not an admin), never 200
 ADMIN_PAGES = {("GET", "/admin"), ("GET", "/admin/assets/{name}")}
 
@@ -93,11 +93,8 @@ async def test_a_waiting_session_opens_nothing_but_its_own_routes(app, login_pen
 
 
 # routes that arrive in later phases of this feature; once registered the test checks them like any other.
-# T021 (US2) turns the access routes into mandatory ones, T024 (US3) the admin pages.
-PENDING_LATER = {
-    ("GET", "/"), ("GET", "/v1/access"), ("POST", "/v1/access/request"),
-    ("GET", "/admin"), ("GET", "/admin/assets/{name}"),
-}
+# The access routes and the start page are mandatory since US1/US2; T024 (US3) adds the admin pages.
+PENDING_LATER = {("GET", "/admin"), ("GET", "/admin/assets/{name}")}
 
 
 async def test_the_waiting_session_still_works_for_logout_and_is_revoked_like_any_session(login_pending, sql):
@@ -117,3 +114,11 @@ async def test_rejecting_or_suspending_ends_a_waiting_session_immediately(login_
             "SELECT count(*) AS n FROM app.sessions WHERE user_id = %s AND revoked_at IS NULL", (person,)
         ).fetchone()["n"]
         assert revoked == 0, action
+
+
+async def test_a_waiting_session_can_call_exactly_its_own_routes(login_pending, sql):
+    waiting = await login_pending("walker@example.org")
+    assert (await waiting.get("/v1/access")).status_code == 200
+    assert (await waiting.post("/v1/access/request", json={"name": "W"})).status_code == 201
+    assert (await waiting.post("/v1/auth/logout")).status_code == 204
+    assert (await waiting.get("/v1/access")).status_code == 401  # sign-out ended it

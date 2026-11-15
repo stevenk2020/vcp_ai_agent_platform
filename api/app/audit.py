@@ -26,7 +26,7 @@ ACTIONS = frozenset(
         "session_created", "session_revoked", "signed_out",
         "allowlist_added", "allowlist_removed",
         "user_approved", "user_rejected", "user_suspended", "role_changed",
-        "first_admin_created", "first_admin_refused", "last_admin_blocked",
+        "first_admin_created", "first_admin_refused", "last_admin_blocked", "access_requested",
     }
 )
 

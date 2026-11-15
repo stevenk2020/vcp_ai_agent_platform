@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 import uuid
 from dataclasses import dataclass
 
 import psycopg.errors
 
 from app import audit
-from app.errors import ApiError, invalid_code, not_configured, rate_limited, try_again_later
+from app.errors import ApiError, invalid_code, not_configured, not_pending, rate_limited, try_again_later
 from app.mailer import MailSendError, NotConfigured
 from app.rate_limit import code_email_key, code_ip_key, verify_ip_key
 from app.security import (
@@ -255,6 +257,41 @@ async def _waiting_session(conn, state, user_id, email: str, ip: str | None) -> 
     await audit.record(conn, state.clock, "session_created", actor_user_id=user_id, actor_email=email,
                        target=email, ip=ip)
     return SignInOutcome(status="pending", token=token)
+
+
+def clean_text(value: str | None) -> str | None:
+    """Text from an access request: whitespace (including newlines) becomes single spaces, control and invisible
+    format characters (incl. bidi overrides) are removed, the ends are trimmed; nothing left means no text.
+    Markup is NOT altered: it is stored as typed and always rendered as plain text."""
+    if value is None:
+        return None
+    spaced = "".join(" " if ch.isspace() else ch for ch in value)
+    kept = "".join(ch for ch in spaced if unicodedata.category(ch) not in ("Cc", "Cf"))
+    cleaned = re.sub(r" {2,}", " ", kept).strip()
+    return cleaned or None
+
+
+async def submit_request(state, person, name: str | None, reason: str | None, ip: str | None) -> bool:
+    """Store a waiting person's optional name and reason ONCE. Returns True when stored now, False when the person
+    had already submitted (stored text unchanged). The conditional UPDATE is what enforces "once", also when two
+    requests arrive at the same moment."""
+    clean_name, clean_reason = clean_text(name), clean_text(reason)
+    async with state.db.transaction() as conn:
+        cursor = await conn.execute(
+            "UPDATE app.users SET name = %s, request_reason = %s, request_submitted_at = %s, updated_at = %s "
+            "WHERE id = %s AND status = 'pending' AND request_submitted_at IS NULL RETURNING id",
+            (clean_name, clean_reason, state.clock.now(), state.clock.now(), person.id),
+        )
+        if await cursor.fetchone() is None:
+            cursor = await conn.execute("SELECT status, request_submitted_at FROM app.users WHERE id = %s", (person.id,))
+            row = await cursor.fetchone()
+            if row is not None and row["status"] == "pending" and row["request_submitted_at"] is not None:
+                return False
+            raise not_pending()
+        await audit.record(conn, state.clock, "access_requested", actor_user_id=person.id, actor_email=person.email,
+                           target=person.email, ip=ip,
+                           detail={"has_name": clean_name is not None, "has_reason": clean_reason is not None})
+    return True
 
 
 async def revoke_session(state, session_id, user, ip: str | None) -> None:
