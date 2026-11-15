@@ -59,6 +59,30 @@ services:
       timeout: 3s
       retries: 10
 
+  # One-shot, idempotent: extensions, schemas, roles, grants. Re-runs on every `make up`
+  # (rotating a secret file and restarting re-syncs the role passwords).
+  db-init:
+    image: pgvector/pgvector:pg16
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGDATABASE: ${POSTGRES_DB:-platform}
+    entrypoint: ["/bin/sh", "/bootstrap/run.sh"]
+    secrets:
+      - postgres_superuser_password
+      - app_owner_password
+      - sync_writer_password
+      - agent_ro_password
+      - backup_ro_password
+    volumes:
+      - ./db/bootstrap:/bootstrap:ro
+    networks:
+      - platform
+
   caddy:
     image: caddy:2
     restart: unless-stopped
