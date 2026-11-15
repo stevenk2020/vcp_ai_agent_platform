@@ -173,12 +173,12 @@ description: "Task list for 002-passwordless-auth"
 
 ### Tests for User Story 6
 
-- [ ] T038 [P] [US6] Write `api/tests/integration/test_first_admin.py` calling the CLI entry point in-process and as a subprocess: empty system creates one `admin`/`active` user and exits 0, audit `first_admin_created`; the created admin signs in with a code and passes `require_role("admin")`; a second run with another email creates nothing, exits 2 and audits `first_admin_refused`; two simultaneous runs create exactly one admin; a malformed email exits 1; with only a `rejected` admin present the command works again; no environment variable, setting or file in `api/` can create an admin (assert by searching the source for any such path, and by starting the app with odd environment values)
+- [X] T038 [P] [US6] Write `api/tests/integration/test_first_admin.py` calling the CLI entry point in-process and as a subprocess: empty system creates one `admin`/`active` user and exits 0, audit `first_admin_created`; the created admin signs in with a code and passes `require_role("admin")`; a second run with another email creates nothing, exits 2 and audits `first_admin_refused`; two simultaneous runs create exactly one admin; a malformed email exits 1; with only a `rejected` admin present the command works again; no environment variable, setting or file in `api/` can create an admin (assert by searching the source for any such path, and by starting the app with odd environment values)
 
 ### Implementation for User Story 6
 
-- [ ] T039 [US6] Implement `api/app/cli.py` (`python -m app.cli create-first-admin --email ...`) exactly as in `specs/002-passwordless-auth/contracts/operator-cli.md`: one transaction under `pg_advisory_xact_lock`, refuse when any user with role `admin` and status other than `rejected` exists, otherwise insert the admin as `active` and audit with actor `cli`; exit codes 0, 1 and 2 as documented; no other way of creating an admin exists in the code
-- [ ] T040 [US6] Run `make test-api ARGS="-k first_admin"`, then the whole `make test-api`; do not create a real admin here (that happens once, in T051, on the live database); fix; commit
+- [X] T039 [US6] Implement `api/app/cli.py` (`python -m app.cli create-first-admin --email ...`) exactly as in `specs/002-passwordless-auth/contracts/operator-cli.md`: one transaction under `pg_advisory_xact_lock`, refuse when any user with role `admin` and status other than `rejected` exists, otherwise insert the admin as `active` and audit with actor `cli`; exit codes 0, 1 and 2 as documented; no other way of creating an admin exists in the code
+- [X] T040 [US6] Run `make test-api ARGS="-k first_admin"`, then the whole `make test-api`; do not create a real admin here (that happens once, in T051, on the live database); fix; commit
 
 **Checkpoint**: The system can be bootstrapped
 
