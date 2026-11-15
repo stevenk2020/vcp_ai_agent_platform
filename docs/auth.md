@@ -1,4 +1,4 @@
-# Sign-in, allowlist and admin (feature 002)
+# Sign-in, allowlist and admin (features 002 and 003)
 
 Only people an admin has approved can sign in, without any password. Two ways in, one gate:
 
@@ -7,9 +7,28 @@ Only people an admin has approved can sign in, without any password. Two ways in
 - **Emailed code** (`POST /v1/auth/code/request` then `/verify`): a 6-digit code valid 10 minutes, 5 wrong
   attempts kill it, one use. Can be switched off (`MAIL_BACKEND=disabled`, the production start).
 
-After the email is proven the allowlist is checked: allowed people get a session (a 7-day cookie),
-everyone else is created as `pending` and waits in the approval queue. Removing someone from the
-allowlist, or rejecting or suspending them, ends their sessions on their very next request.
+After the email is proven the allowlist is checked: allowed people get a session (a 7-day cookie).
+Everyone else is created as `pending`, waits in the approval queue, and holds a **waiting session**: it
+proves who they are and lets them see their status and submit an access request (name and reason, once),
+and it opens nothing else. After an admin approves them, a reload takes them inside with the chosen role.
+Removing someone from the allowlist, or rejecting or suspending them, ends their sessions (waiting ones
+included) on their very next request. Rule of the constitution (v1.0.1): every protected action requires an
+approved person; only `GET /v1/access`, `POST /v1/access/request` and sign-out accept a waiting session, and
+`api/tests/integration/test_deny_by_default.py` walks every route to prove it.
+
+## The web pages (feature 003)
+
+Everything is at `https://vcp.onepercentdata.site/`:
+
+| Page | Who | What |
+| --- | --- | --- |
+| `/` | everyone | "Sign in with Google" (the email-code form appears only when mail delivery is on); approved people see the placeholder inside area with their role and a sign-out button; waiting people see the access request page |
+| `/admin` | admins only | **Waiting** (approve with a role or reject, each with a confirmation), **Allowlist** (add or remove an email or domain; removal ends that person's sessions at once), **People** (change role, suspend, reactivate with a chosen role), **Audit log** (newest first, filter by action and by email, "Older events") |
+
+Signed-out visitors opening `/admin` are sent to `/`; anyone who is not an admin sees a refusal page and never
+receives the admin script. If two admins act on the same person, the second sees "Someone else already handled
+this person" and nothing changes twice. Pages are plain files in `api/app/web/` (no framework, no build step);
+all responses carry a strict content security policy (no inline script, nothing from other sites).
 
 The interface is in `specs/002-passwordless-auth/contracts/http-api.md`; the design in
 `specs/002-passwordless-auth/`.
@@ -44,11 +63,11 @@ sink is selected. `GET https://vcp.onepercentdata.site/v1/health` shows the mode
 To add emailed codes later, fill `SMTP_HOST`, `SMTP_PORT` (587, STARTTLS), `SMTP_USER`, `SMTP_PASSWORD`,
 `SMTP_FROM` in `secrets/api_external`, set `MAIL_BACKEND=smtp` and `make up-prod`.
 
-## Managing people without a screen (until the admin UI exists)
+## Break-glass: managing people with curl
 
-Admin actions are `POST`/`PUT`/`PATCH`/`DELETE` requests, so they need the session cookie **and** an
-`Origin` header. After signing in with Google in a browser, copy the cookie `__Host-session` from the
-browser's developer tools (Application → Cookies) and use it:
+Use the admin area first. If the pages are down, admin actions still work as `POST`/`PUT`/`PATCH`/`DELETE`
+requests with the session cookie **and** an `Origin` header. After signing in with Google, copy the cookie
+`__Host-session` from the browser's developer tools (Application → Cookies):
 
 ```bash
 O=https://vcp.onepercentdata.site
@@ -57,18 +76,17 @@ H=(-H "Origin: $O" -H 'Content-Type: application/json' --cookie "__Host-session=
 
 curl -sS "${H[@]}" $O/v1/me
 curl -sS "${H[@]}" -d '{"kind":"email","value":"colleague@example.com","default_role":"user"}' $O/v1/admin/allowlist
-curl -sS "${H[@]}" -d '{"kind":"domain","value":"example.com","default_role":"user"}' $O/v1/admin/allowlist
-curl -sS "${H[@]}" $O/v1/admin/allowlist
 curl -sS "${H[@]}" "$O/v1/admin/users?status=pending"                       # the approval queue
-curl -sS "${H[@]}" -X POST -d '{"role":"user"}' $O/v1/admin/users/<id>/approve
-curl -sS "${H[@]}" -X POST $O/v1/admin/users/<id>/reject
-curl -sS "${H[@]}" -X POST $O/v1/admin/users/<id>/suspend
+curl -sS "${H[@]}" -X POST -d '{"role":"user"}' "$O/v1/admin/users/<id>/approve?expect_status=pending"
+curl -sS "${H[@]}" -X POST "$O/v1/admin/users/<id>/reject?expect_status=pending"
+curl -sS "${H[@]}" -X POST "$O/v1/admin/users/<id>/suspend"
 curl -sS "${H[@]}" -X POST -d '{"role":"builder"}' $O/v1/admin/users/<id>/role
 curl -sS "${H[@]}" -X DELETE $O/v1/admin/allowlist/<entry-id>
-curl -sS "${H[@]}" "$O/v1/admin/audit?limit=50&action=signin_pending"
+curl -sS "${H[@]}" "$O/v1/admin/audit?limit=50&action=signin_pending&person=alice"
 ```
 
-Treat the cookie value like a password: do not paste it into chat, tickets or shell history you share.
+`expect_status` is optional: when given, the call fails with `409 already_handled` if the person's status
+is no longer what you saw. Treat the cookie value like a password.
 
 ## Development (emailed codes, no real email)
 
@@ -86,6 +104,10 @@ hour are deleted. The capture sink is refused in production.
 
 | Symptom | Check |
 | --- | --- |
+| Blank page or old page after a deploy | the `api` image was not rebuilt: `make up-prod`; then hard-reload the browser |
+| Console shows a CSP violation | a page loads something from outside the site or uses inline script/style; `make test-api ARGS="-k page_sources"` names the file and line |
+| `/admin` shows "You do not have access" | the signed-in person is not an active admin; ask an admin to change the role in People |
+| Waiting person still sees the request page after approval | reload; if it persists, check `GET /v1/access` for their status |
 | `403 origin_not_allowed` | add `-H "Origin: https://vcp.onepercentdata.site"` to every non-GET request |
 | `401 unauthenticated` right after signing in | the cookie is `Secure`: use HTTPS; expired after 7 days; or the person was removed or suspended |
 | Sign-in ends at `/?signin=pending` | the person is not on the allowlist: approve them in the queue, or add their email or domain |

@@ -13,6 +13,9 @@ This repository currently contains:
 - **sign-in** (`specs/002-passwordless-auth`): the `api` service with passwordless sign-in (Google, or an
   emailed code), an admin-managed allowlist, an approval queue, sessions and an audit trail. See
   [`docs/auth.md`](docs/auth.md).
+- **web pages** (`specs/003-web-sign-in-admin-ui`): the start page with Google sign-in, the access request page for
+  people waiting for approval, and the admin area at `/admin` (approval queue, allowlist, people, audit log). Plain
+  static files served by the `api` service; no framework, no build step.
 
 ## Prerequisites
 
@@ -38,7 +41,7 @@ the tests with `make test ARGS="-k permissions"` (not `make test -- -k ...`).
 
 | Path | What |
 | --- | --- |
-| `api/` | the API service (FastAPI): sign-in, allowlist, sessions, audit; tests in `api/tests` |
+| `api/` | the API service (FastAPI): sign-in, allowlist, sessions, audit, and the web pages in `api/app/web`; tests in `api/tests` |
 | `compose.yaml`, `compose.backup.yaml` | services; the backup service is loaded only once `secrets/backup_age_public_key` and `secrets/rclone_config` both exist |
 | `db/bootstrap/` | idempotent extensions, schemas, roles and grants (run on every `make up`) |
 | `db/migrations/` | versioned SQL migrations (dbmate), tracked in `app.schema_migrations` |
@@ -46,7 +49,7 @@ the tests with `make test ARGS="-k permissions"` (not `make test -- -k ...`).
 | `backup/`, `scripts/` | backup image and operator scripts |
 | `tests/foundation/` | acceptance tests (roles, timeout, migrations, backup and restore, secrets) |
 | `docs/` | [`auth.md`](docs/auth.md), [`vps-setup.md`](docs/vps-setup.md), [`restore.md`](docs/restore.md), [`phase0-verification.md`](docs/phase0-verification.md) |
-| `specs/001-foundation-data-layer/`, `specs/002-passwordless-auth/` | spec, plan, tasks, contracts, quickstart |
+| `specs/001-foundation-data-layer/`, `specs/002-passwordless-auth/`, `specs/003-web-sign-in-admin-ui/` | spec, plan, tasks, contracts, quickstart |
 | `.specify/memory/constitution.md` | the project's non-negotiable principles |
 
 ## Rules worth knowing

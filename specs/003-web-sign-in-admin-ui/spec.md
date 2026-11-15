@@ -187,3 +187,22 @@ Pages never give admin function or data to anyone who is not a signed-in admin, 
 - English-only text and a plain, framework-free look are acceptable for an internal tool of about 50 people.
 - Audit log filtering by person uses the email address (exact or prefix match is acceptable).
 - Role names stay admin, builder and user.
+
+## Validation results
+
+Run on 2026-11-15 on branch `dev_spec_03` (before the manual walk-through in `quickstart.md`, tasks T042 to T044):
+
+- `make test-api`: 275 passed (was 138 before this feature). New coverage: waiting session and the deny-by-default
+  walk of every route, access request (once, cleaning, limits, concurrency, audit without text), admin gating of
+  `/admin` and its script, `expect_status` (409 `already_handled`, concurrent approvals), allowlist `added_by_email`,
+  audit person filter and paging, security headers on every path, page-source lint (43 checks including proof that
+  each rule can fail), stored hostile text.
+- `make test`: 132 passed (data layer, new access-request columns and constraints included).
+- `make scan-secrets`: clean (12 secret values). Fixed in passing: the scanner no longer treats comment lines of
+  `.env` as secret values.
+- Mutation check of the key security test: letting `current_user` accept pending people made
+  `test_deny_by_default` fail and name the route; the change was reverted.
+- The live database was not touched by tests: still 1 person, 0 allowlist entries (the one added migration
+  `20261115020000` was applied to it deliberately and is additive).
+- Not yet verified (needs a browser and two Google accounts): visual layout, dialogs, keyboard use, phone width,
+  the real Google flow with a waiting person (quickstart steps 1 to 10, task T043).
