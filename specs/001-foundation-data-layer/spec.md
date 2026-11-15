@@ -169,3 +169,19 @@ The open questions about the `sales_contract` source table are recorded as expli
 - The first source table served later is `dbo.sales_contract`; no source data is loaded in this feature.
 - Source SQL Server credentials already exist locally in an ignored file and will be rotated or restricted to a read-only account if needed.
 - The sync process role that writes to the serving area is defined here as a permission boundary only; its logic is a later feature.
+
+## Validation results
+
+Run on 2026-11-15 on the dev machine (which is also the production VPS). 93 automated acceptance tests pass (`make test`); `make scan-secrets` is clean.
+
+| Criterion | Result | Evidence |
+| --- | --- | --- |
+| SC-001 one command to healthy in under 10 minutes | Met | `make up` from a clean volume took 8.9 s with images cached; the first run including image pulls took about 26 s |
+| SC-002 permitted operations succeed, forbidden ones are rejected | Met | `tests/foundation/test_permissions.py`, `test_extensions.py`, `test_swap.py` |
+| SC-003 queries over 30 s are cancelled | Met | `tests/foundation/test_agent_session.py` (`pg_sleep(31)` cancelled between 29 and 33 s) |
+| SC-004 daily backup and a restore that matches | Met in automated tests; **real Google Drive upload not done yet** | `test_backup_restore.py` (backup, upload to a local remote, decrypt, restore, compare counts; also detects a difference); blocked on T040 (age key and Drive) |
+| SC-005 zero credential values in repository and history | Met | `scripts/scan-secrets.sh`, `test_secrets_scope.py` |
+| SC-006 re-running migrations is a no-op | Met | `tests/foundation/test_migrations.py` |
+| SC-007 four verification items recorded with owner and status | **Partly**: the tracker exists (`docs/phase0-verification.md`), owners are still `TODO(owner)` and all items are `open` | T047 is the operator's |
+
+Not yet verified (operator tasks): HTTPS on `vcp.onepercentdata.site` with `make up-prod` and the firewall (T016), Google Drive backup and first real restore (T040), SQL Server account privileges (T030), the four verification items (T047).

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # scan-secrets checks the whole history
+
+      - uses: astral-sh/setup-uv@v5
+
+      # Only generated, throwaway secrets: no repository secrets are used.
+      - name: Generate secrets
+        run: make secrets
+
+      - name: Start the stack
+        run: make up
+
+      - name: Acceptance tests (the 30-second timeout test is marked slow and skipped here)
+        run: make test ARGS="-m 'not slow'"
+
+      - name: Scan for committed secrets
+        run: make scan-secrets
+
+      - name: Show state on failure
+        if: failure()
+        run: docker compose ps --all && docker compose logs --tail=100
+
+      - name: Stop the stack
+        if: always()
+        run: make down

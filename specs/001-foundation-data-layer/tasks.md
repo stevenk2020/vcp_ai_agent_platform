@@ -180,10 +180,10 @@ description: "Task list for 001-foundation-data-layer"
 
 ## Phase 9: Polish and Cross-Cutting Concerns
 
-- [ ] T048 [P] Create `README.md` at the repository root: what the project is (two sentences), prerequisites, first-run steps (`cp .env.example .env`, `make secrets`, `make up`, `make test`), link to `docs/vps-setup.md`, `docs/restore.md`, and the spec folder
-- [ ] T049 [P] Create `.github/workflows/ci.yml`: on push and pull request, run `make secrets`, `make up`, `make test` (excluding `slow` and anything needing real Drive), `make scan-secrets`, then `make down`; use only generated secrets, no repository secrets
-- [ ] T050 Run every scenario in `specs/001-foundation-data-layer/quickstart.md` that does not need the VPS or Google Drive; tick off success criteria SC-001 to SC-007 in a short note at the end of `specs/001-foundation-data-layer/spec.md` under "Validation results" (include date and what is still blocked on MANUAL tasks)
-- [ ] T051 Run `make scan-secrets` and confirm `git status` shows no `.env` or `secrets/` file staged; commit and push
+- [X] T048 [P] Create `README.md` at the repository root: what the project is (two sentences), prerequisites, first-run steps (`cp .env.example .env`, `make secrets`, `make up`, `make test`), link to `docs/vps-setup.md`, `docs/restore.md`, and the spec folder
+- [X] T049 [P] Create `.github/workflows/ci.yml`: on push and pull request, run `make secrets`, `make up`, `make test` (excluding `slow` and anything needing real Drive), `make scan-secrets`, then `make down`; use only generated secrets, no repository secrets
+- [X] T050 Run every scenario in `specs/001-foundation-data-layer/quickstart.md` that does not need the VPS or Google Drive; tick off success criteria SC-001 to SC-007 in a short note at the end of `specs/001-foundation-data-layer/spec.md` under "Validation results" (include date and what is still blocked on MANUAL tasks)
+- [X] T051 Run `make scan-secrets` and confirm `git status` shows no `.env` or `secrets/` file staged; commit and push
 
 ---
 
