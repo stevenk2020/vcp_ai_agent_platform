@@ -205,11 +205,11 @@ description: "Task list for 002-passwordless-auth"
 
 ## Phase 10: Polish and Cross-Cutting Concerns
 
-- [ ] T044 [P] Create `docs/auth.md`: how sign-in works for users, how an admin manages the allowlist and approval queue (with `curl` examples against the contract, including the `Origin` header), how to create the first admin, how to read the capture directory in development (`docker compose exec api ls /var/mail-capture`), the Google-only production setup (`MAIL_BACKEND=disabled`), the going-live checklist from `contracts/operator-cli.md`, and troubleshooting (code not arriving, locked out, cookie not set over HTTP)
-- [ ] T045 [P] Update `README.md`: add the `api` service, `make test-api`, and a link to `docs/auth.md` and `specs/002-passwordless-auth/`
-- [ ] T046 [P] Update `.github/workflows/ci.yml`: after `make test` also run `make test-api ARGS="-m 'not slow'"` (generated secrets only; the `api_external` template stays empty), and print `docker compose logs api` on failure
-- [ ] T047 Run everything: `make down && make up`, `make test`, `make test-api`, `make scan-secrets`; run every scenario in `specs/002-passwordless-auth/quickstart.md` that does not need SMTP, Google or production mode; add a "Validation results" section at the end of `specs/002-passwordless-auth/spec.md` ticking SC-001 to SC-009 with evidence and listing what is still blocked on `[MANUAL]` tasks
-- [ ] T048 Confirm `git status` shows no `.env` or `secrets/` file staged, run `make scan-secrets`, commit and push
+- [X] T044 [P] Create `docs/auth.md`: how sign-in works for users, how an admin manages the allowlist and approval queue (with `curl` examples against the contract, including the `Origin` header), how to create the first admin, how to read the capture directory in development (`docker compose exec api ls /var/mail-capture`), the Google-only production setup (`MAIL_BACKEND=disabled`), the going-live checklist from `contracts/operator-cli.md`, and troubleshooting (code not arriving, locked out, cookie not set over HTTP)
+- [X] T045 [P] Update `README.md`: add the `api` service, `make test-api`, and a link to `docs/auth.md` and `specs/002-passwordless-auth/`
+- [X] T046 [P] Update `.github/workflows/ci.yml`: after `make test` also run `make test-api ARGS="-m 'not slow'"` (generated secrets only; the `api_external` template stays empty), and print `docker compose logs api` on failure
+- [X] T047 Run everything: `make down && make up`, `make test`, `make test-api`, `make scan-secrets`; run every scenario in `specs/002-passwordless-auth/quickstart.md` that does not need SMTP, Google or production mode; add a "Validation results" section at the end of `specs/002-passwordless-auth/spec.md` ticking SC-001 to SC-009 with evidence and listing what is still blocked on `[MANUAL]` tasks
+- [X] T048 Confirm `git status` shows no `.env` or `secrets/` file staged, run `make scan-secrets`, commit and push
 
 ---
 

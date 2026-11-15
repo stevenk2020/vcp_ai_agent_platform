@@ -206,3 +206,23 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - The chat and admin screens come in a later feature; here admin actions are available only as a service interface, and a signed-in session is demonstrated with a simple protected check.
 - The platform's shared data layer from feature 001 is available (database, schemas, roles, migrations, secrets handling, HTTPS entry point).
 - Constitution principles I (permission-first security) and VI (auditability) apply: access control is enforced in the service that owns the data, not in the user interface.
+
+## Validation results
+
+Run on 2026-11-15: 138 API tests (`make test-api`, isolated project) and 126 data-layer tests (`make test`) pass; `make scan-secrets` is clean; the live database was untouched by the tests (0 users, 0 allowlist entries, 0 audit rows before and after).
+
+| Criterion | Result | Evidence |
+| --- | --- | --- |
+| SC-001 sign in under 60 seconds | Not yet timed | Experience target; to be timed by hand at the first real Google sign-in (T050, T051) |
+| SC-002 codes refused after 10 minutes, 5 wrong attempts, one use | Met | `api/tests/integration/test_signin_code.py` |
+| SC-003 removal, rejection or suspension ends sessions on the next request | Met | `test_admin.py`, `test_unapproved.py` |
+| SC-004 identical response, no consistent timing difference | Met | `test_unapproved.py`: byte-identical responses; median difference under 20% over 200 requests |
+| SC-005 non-admins refused on every admin action | Met | `test_admin.py` (every admin route for `user`, `builder` and anonymous callers) |
+| SC-006 no readable code, session token or Google token in tables or logs | Met | `test_audit.py`, `test_google.py` (the development mail sink is excluded, see FR-019) |
+| SC-007 first admin created exactly once | Met | `test_first_admin.py` (including two runs at once) |
+| SC-008 one audit record per audited action | Met | `test_audit.py` (one scenario per action name) |
+| SC-009 no extra mail after the per-email cap | Met | `test_rate_limits.py` |
+
+Checked against the live stack over HTTPS (read-only): `GET /v1/health` is `200` with `mail_backend: capture`, `GET /v1/me` and `GET /v1/admin/allowlist` without a session are `401`, a `POST` without `Origin` is `403`, and `GET /v1/auth/google/start` redirects to Google's consent page with the real client, the exact redirect URI, PKCE and an `HttpOnly; Secure` state cookie.
+
+Not yet verified (operator tasks): a real Google sign-in and the first real admin (T050, T051), and the optional email service (T049, deferred).

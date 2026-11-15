@@ -5,9 +5,14 @@ AI agent that can only read curated copies of the data. The full design is in
 [`AI Agent Platform — Review & Technical Spec.md`](AI%20Agent%20Platform%20—%20Review%20%26%20Technical%20Spec.md);
 features are built one at a time with [Spec Kit](https://github.com/github/spec-kit) under `specs/`.
 
-This repository currently contains the **foundation layer** (`specs/001-foundation-data-layer`):
-Postgres (three isolated schemas and a read-only agent role), Redis, Caddy for HTTPS, protected
-secrets, encrypted daily backups with a tested restore, and SQL migrations.
+This repository currently contains:
+
+- the **foundation layer** (`specs/001-foundation-data-layer`): Postgres (three isolated schemas and a
+  read-only agent role), Redis, Caddy for HTTPS, protected secrets, encrypted daily backups with a tested
+  restore, and SQL migrations;
+- **sign-in** (`specs/002-passwordless-auth`): the `api` service with passwordless sign-in (Google, or an
+  emailed code), an admin-managed allowlist, an approval queue, sessions and an audit trail. See
+  [`docs/auth.md`](docs/auth.md).
 
 ## Prerequisites
 
@@ -21,7 +26,8 @@ cp .env.example .env     # optional: adjust the non-secret settings
 make secrets             # creates random passwords in secrets/ (ignored by git)
 make up                  # starts postgres, redis, bootstrap, migrations
 docker compose ps        # every long-running service is healthy
-make test                # full acceptance suite (about 90 seconds)
+make test                # data-layer acceptance suite (about 90 seconds)
+make test-api            # API tests, in an isolated project (never touches the live database)
 ```
 
 Other commands: `make down`, `make migrate`, `make up-prod` (adds Caddy on
@@ -32,14 +38,15 @@ the tests with `make test ARGS="-k permissions"` (not `make test -- -k ...`).
 
 | Path | What |
 | --- | --- |
+| `api/` | the API service (FastAPI): sign-in, allowlist, sessions, audit; tests in `api/tests` |
 | `compose.yaml`, `compose.backup.yaml` | services; the backup service is loaded only once `secrets/backup_age_public_key` and `secrets/rclone_config` both exist |
 | `db/bootstrap/` | idempotent extensions, schemas, roles and grants (run on every `make up`) |
 | `db/migrations/` | versioned SQL migrations (dbmate), tracked in `app.schema_migrations` |
 | `secrets/` | one file per secret; nothing but `README.md` is tracked |
 | `backup/`, `scripts/` | backup image and operator scripts |
 | `tests/foundation/` | acceptance tests (roles, timeout, migrations, backup and restore, secrets) |
-| `docs/` | [`vps-setup.md`](docs/vps-setup.md), [`restore.md`](docs/restore.md), [`phase0-verification.md`](docs/phase0-verification.md) |
-| `specs/001-foundation-data-layer/` | spec, plan, tasks, contracts, quickstart |
+| `docs/` | [`auth.md`](docs/auth.md), [`vps-setup.md`](docs/vps-setup.md), [`restore.md`](docs/restore.md), [`phase0-verification.md`](docs/phase0-verification.md) |
+| `specs/001-foundation-data-layer/`, `specs/002-passwordless-auth/` | spec, plan, tasks, contracts, quickstart |
 | `.specify/memory/constitution.md` | the project's non-negotiable principles |
 
 ## Rules worth knowing

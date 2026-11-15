@@ -25,12 +25,15 @@ jobs:
       - name: Acceptance tests (the 30-second timeout test is marked slow and skipped here)
         run: make test ARGS="-m 'not slow'"
 
+      - name: API tests (isolated project; the 30-second-style slow tests are skipped)
+        run: make test-api ARGS="-m 'not slow'"
+
       - name: Scan for committed secrets
         run: make scan-secrets
 
       - name: Show state on failure
         if: failure()
-        run: docker compose ps --all && docker compose logs --tail=100
+        run: docker compose ps --all && docker compose logs --tail=100 api
 
       - name: Stop the stack
         if: always()
