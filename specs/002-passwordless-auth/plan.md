@@ -33,7 +33,7 @@ sending real email. The first admin is created by a one-time command on the serv
 
 **Performance Goals**: sign-in code verification and session check each under 100 ms at 50 concurrent users (about 50 users total in production); session check adds one indexed database lookup per request
 
-**Constraints**: no readable code, session token or Google token in storage or logs; same visible response and no consistent timing difference for allowlisted vs non-allowlisted emails; revocation takes effect on the very next request; `api_rw` has no access outside the tables it needs; the capture mailer must refuse to run in production mode
+**Constraints**: no readable code, session token or Google token in storage or logs; same visible response and no consistent timing difference for allowlisted vs non-allowlisted emails; revocation takes effect on the very next request; `api_rw` has no access outside the tables it needs; the capture mailer must refuse to run in production mode, and production needs at least one sign-in path configured (Google when email codes are switched off)
 
 **Scale/Scope**: about 50 users, a few admins, tens of sign-ins per day
 

@@ -16,8 +16,9 @@ docker compose exec api python -m app.cli create-first-admin --email you@example
 | Two runs at the same moment | One succeeds, the other behaves like "an admin already exists" (advisory lock) |
 
 There is no setting, environment variable or file that grants admin rights; after the first admin
-exists the command is inert. The admin signs in with an emailed code like anyone else, so the
-`MAIL_BACKEND` must be able to deliver (in development read the code from the capture directory).
+exists the command is inert. The admin then signs in like anyone else: with an emailed code when email codes are on (in
+development read the code from the capture directory), or with Google when `MAIL_BACKEND=disabled`,
+using the Google account of the same address.
 
 ## Other commands
 
@@ -38,5 +39,8 @@ configured):
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | sending codes when `MAIL_BACKEND=smtp` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in; absent means the Google endpoints return `503 not_configured` |
 
-Going live checklist: set `APP_ENV=production` and `MAIL_BACKEND=smtp`, fill `api_external`, create
-the first admin, check `GET /v1/health` reports `mail_backend: smtp`.
+Going live checklist (Google only): set `APP_ENV=production` and `MAIL_BACKEND=disabled`, make sure
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are filled in `secrets/api_external`, `make up-prod`, check
+`GET /v1/health` reports `mail_backend: disabled`, create the first admin with the address of the Google
+account you will use, then open `https://vcp.onepercentdata.site/v1/auth/google/start` in a browser.
+To add email codes later: fill the SMTP keys, set `MAIL_BACKEND=smtp`, restart.

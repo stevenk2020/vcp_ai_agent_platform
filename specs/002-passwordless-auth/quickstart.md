@@ -93,5 +93,5 @@ make up-prod
 curl -fsS https://vcp.onepercentdata.site/v1/health
 ```
 
-Expect `200` with `{"status":"ok","mail_backend":"capture"}` until SMTP is configured; the cookie
+Expect `200` with `{"status":"ok","mail_backend":"capture"}` in development (`disabled` in production, or `smtp` once an email service is connected); the cookie
 must be set with `Secure; HttpOnly; SameSite=Lax` (check with `curl -i` on a verify response).

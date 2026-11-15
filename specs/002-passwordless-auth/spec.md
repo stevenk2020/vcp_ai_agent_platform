@@ -137,6 +137,7 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - A signed-in user's role is changed by an admin: the new role applies on their next request.
 - An admin removes their own entry or the last admin: the system refuses so it can never be left without an admin.
 - Mail delivery fails: the person is told to try again later, no code stays valid that was never sent, and the failure is audited.
+- Email codes are switched off: requesting a code is refused as "not available", nothing is sent or stored, and Google sign-in is unaffected.
 - Two sign-ins at the same time with the same code: only one succeeds.
 - A person with a pending account signs in again before being approved: still no session, still one entry in the queue.
 - A Google account's email changes after sign-up: the user is identified by the verified email at each sign-in.
@@ -148,7 +149,7 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 
 - **FR-001**: The system MUST let an admin add an allowlist entry for an email address or a whole email domain, with a default role (admin, builder or user).
 - **FR-002**: The system MUST let an admin list and remove allowlist entries, and MUST record who added each entry and when.
-- **FR-003**: The system MUST let a person request a 6-digit sign-in code for an email address and deliver it by email.
+- **FR-003**: The system MUST let a person request a 6-digit sign-in code for an email address and deliver it by email. Email-code sign-in MUST be switchable off by configuration: while it is off, a code request is refused with a clear "not available" response, nothing is sent or stored, and Google sign-in keeps working.
 - **FR-004**: A sign-in code MUST expire 10 minutes after it is issued, MUST work only once, and MUST become unusable after 5 wrong attempts.
 - **FR-005**: Requesting a new code MUST cancel any earlier unused code for the same email.
 - **FR-006**: The system MUST let a person sign in with Google, and MUST accept only an email address that Google reports as verified.
@@ -162,7 +163,7 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - **FR-014**: The system MUST support three roles (admin, builder, user), MUST refuse admin actions to other roles, and MUST make the caller's identity and role available on every protected request.
 - **FR-015**: The system MUST provide a documented one-time way to create the first admin, MUST refuse to use it to create further admins, and MUST NOT leave a permanent backdoor.
 - **FR-016**: The system MUST refuse to remove, suspend or demote the last remaining admin.
-- **FR-017**: The system MUST deliver codes through a transactional email service, and MUST capture codes locally instead of sending real email in development and tests.
+- **FR-017**: When email codes are on, the system MUST deliver them through a transactional email service, and MUST capture codes locally instead of sending real email in development and tests.
 - **FR-018**: The system MUST record sign-in successes and failures, approvals, rejections, removals, role changes and session revocations with time, actor and IP address.
 - **FR-019**: The system MUST NOT store sign-in codes, session tokens or Google tokens in readable form in storage or logs; only irreversible keyed hashes of codes and hashes of session tokens may be kept. The one exception is the development-only mail capture sink of FR-017: it is refused in production, its files are deleted after at most one hour, and it is not part of the stored data this requirement covers.
 - **FR-020**: The system MUST treat email addresses as case-insensitive and ignore surrounding spaces.
@@ -194,7 +195,8 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 
 ## Assumptions
 
-- Email delivery uses a transactional email service chosen during planning; its credentials are provided by the operator later. Until then codes are captured locally (FR-017).
+- Email delivery uses a transactional email service that the operator may connect later; until then codes are captured locally in development and tests (FR-017).
+- Operator decision (2026-11-15): production starts with email codes switched off and Google as the only sign-in path. An email service can be connected later without changing the code. The first admin therefore signs in with Google, using the Google account of the address given to the first-admin command. Production refuses to start if neither sign-in path is configured.
 - Google sign-in needs a Google OAuth client created by the operator; it is not available yet, so Google sign-in is tested with a stand-in identity provider and the real hookup is a later operator task.
 - A domain entry matches only that exact domain, not its subdomains.
 - The sign-in email is written in Vietnamese followed by English, because the users are Vietnamese speakers; the code and its 10-minute lifetime are stated in both.

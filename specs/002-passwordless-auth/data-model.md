@@ -125,7 +125,7 @@ Action names: `code_requested`, `code_send_failed`, `code_verified`, `code_faile
 | Name | Meaning | Default |
 | --- | --- | --- |
 | `APP_ENV` | `development` or `production` | `development` |
-| `MAIL_BACKEND` | `capture` or `smtp` | `capture` (refused when `APP_ENV=production`) |
+| `MAIL_BACKEND` | `capture`, `smtp` or `disabled` | `capture` (refused when `APP_ENV=production`; `disabled` turns email codes off, Google only) |
 | `PUBLIC_ORIGIN` | origin allowed for state-changing requests and Google redirect | `https://vcp.onepercentdata.site` |
 | `CODE_RATE_PER_EMAIL` | codes per email per hour | `5` |
 | `CODE_RATE_PER_IP` | codes per IP per hour | `20` |

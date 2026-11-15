@@ -29,6 +29,7 @@ Body: `{"email": "person@example.com"}`
 | `422 invalid_request` | Not a valid email address |
 | `429 rate_limited` + `Retry-After` | Per-email or per-IP cap reached; no mail sent; same message for every address |
 | `503 try_again_later` | Mail could not be sent; the code is cancelled |
+| `503 not_configured` | Email codes are switched off (`MAIL_BACKEND=disabled`); nothing is sent or stored, use Google |
 
 Side effects: cancels earlier unused codes for the email, stores the HMAC of a new 6-digit code
 (valid 10 minutes), sends the mail, audits `code_requested` (or `code_send_failed`).
@@ -100,5 +101,5 @@ The protected check every later feature can call.
 
 ## Health
 
-`GET /v1/health` (no session): `200` `{"status": "ok", "mail_backend": "capture" or "smtp"}` when
+`GET /v1/health` (no session): `200` `{"status": "ok", "mail_backend": "capture", "smtp" or "disabled"}` when
 Postgres and Redis answer, `503` otherwise. Used by the container healthcheck.
