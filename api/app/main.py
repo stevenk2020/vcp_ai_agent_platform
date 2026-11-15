@@ -107,4 +107,7 @@ def create_app(
         body = {"status": "ok" if db_ok and redis_ok else "unavailable", "mail_backend": settings.mail_backend}
         return JSONResponse(body, status_code=200 if db_ok and redis_ok else 503)
 
+    from app.auth.routes import router as auth_router
+
+    app.include_router(auth_router)
     return app

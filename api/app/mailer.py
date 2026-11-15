@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import smtplib
+import time
 import uuid
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -75,7 +76,8 @@ class CaptureMailer:
             "subject": message["Subject"],
             "body": message.get_content(),
         }
-        name = f"{self.clock.now().strftime('%Y%m%dT%H%M%S%f')}-{uuid.uuid4().hex[:8]}.json"
+        # file names sort by real arrival time (not the injected clock, which tests may freeze)
+        name = f"{time.time_ns():020d}-{uuid.uuid4().hex[:8]}.json"
         (self.directory / name).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
     def messages(self, to: str | None = None) -> list[dict]:
