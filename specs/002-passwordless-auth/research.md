@@ -94,6 +94,7 @@ All Technical Context items are resolved; no `NEEDS CLARIFICATION` remains. Item
 - **Decision**: `make secrets` also creates `api_rw_password` and `auth_pepper` (random) and an `api_external` template file (dotenv format, keys present with empty values: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`). The file always exists, so Compose never fails on a missing secret, and the service treats an empty value as "not configured". `scan-secrets` treats `api_external` like `rclone_config`: only values of keys containing password, secret, token or key count. The operator fills it when SMTP and Google are ready.
 - **Rationale**: Avoids the optional-secret problem found in feature 001 without a second compose file, and keeps real credentials out of git.
 - **Alternatives**: A separate compose override like the backup service (extra moving part for a file that can simply be empty).
+- **Implementation note**: bind-mounted secret files keep the host owner and mode (0600), which the unprivileged container user cannot read. The `api` image therefore starts as root only long enough to copy `api_rw_password`, `auth_pepper` and `api_external` into a memory-only `tmpfs` (`/run/api-secrets`) owned by the app user, then drops privileges (`setpriv`) and starts the app; `docker compose exec` commands such as the first-admin CLI run as root and read `/run/secrets` directly.
 
 ## R-16: Testing approach
 

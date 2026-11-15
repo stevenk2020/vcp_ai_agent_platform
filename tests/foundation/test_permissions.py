@@ -63,7 +63,7 @@ WRITE_STATEMENTS = [
 ]
 
 
-@pytest.mark.parametrize("role", ["agent_ro", "app_owner", "backup_ro"])
+@pytest.mark.parametrize("role", ["agent_ro", "app_owner", "backup_ro", "api_rw"])
 @pytest.mark.parametrize("statement", WRITE_STATEMENTS)
 def test_writes_and_ddl_in_serving_denied(role, statement, serving_table):
     with connect(role) as conn:
@@ -103,7 +103,7 @@ def test_app_owner_and_backup_read_app_and_kb(schema, app_and_kb_tables):
 
 # ---- public, temp tables, roles, extensions ------------------------------------------------------
 
-ALL_ROLES = ["agent_ro", "sync_writer", "app_owner", "backup_ro"]
+ALL_ROLES = ["agent_ro", "sync_writer", "app_owner", "backup_ro", "api_rw"]
 
 
 @pytest.mark.parametrize("role", ALL_ROLES)
@@ -122,7 +122,11 @@ def test_cannot_create_temp_tables(role):
 def test_cannot_create_roles_or_extensions(role):
     with connect(role) as conn:
         _denied(conn, "CREATE ROLE should_not_exist")
-        _denied(conn, "CREATE EXTENSION IF NOT EXISTS hstore")
+        # a role with no schema to create in (api_rw) is stopped earlier with InvalidSchemaName
+        with pytest.raises(DENIED + (errors.InvalidSchemaName,)):
+            conn.execute("CREATE EXTENSION IF NOT EXISTS hstore")
+    with connect("postgres") as admin:
+        assert admin.execute("SELECT 1 FROM pg_extension WHERE extname = 'hstore'").fetchone() is None
 
 
 # ---- agent_ro cannot talk its way out of read-only ----------------------------------------------

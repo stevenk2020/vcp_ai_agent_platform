@@ -13,6 +13,9 @@ yet, with random values. It never overwrites an existing file.
 | `sync_writer_password` | `make secrets` | `db-init` (the future sync worker will also use it) |
 | `agent_ro_password` | `make secrets` | `db-init` (the future Topic service will also use it) |
 | `backup_ro_password` | `make secrets` | `db-init`, `backup` |
+| `api_rw_password` | `make secrets` | `db-init`, `api`, `api-test` |
+| `auth_pepper` | `make secrets` | `api`, `api-test` |
+| `api_external` | **operator** (SMTP and Google settings, `KEY=value` per line; `make secrets` creates an empty template if missing) | `api`, `api-test` |
 | `backup_age_public_key` | **operator** (`age-keygen`; public key only) | `backup` |
 | `rclone_config` | **operator** (`rclone config` for the Google Drive remote `gdrive`) | `backup` |
 

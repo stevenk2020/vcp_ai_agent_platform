@@ -16,3 +16,6 @@ secrets/*
 backups/
 .pytest_cache/
 tests/.venv/
+api/.venv/
+api/.pytest_cache/
+*.egg-info/

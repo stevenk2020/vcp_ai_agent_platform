@@ -12,6 +12,8 @@ deadline=$((SECONDS + timeout))
 compose=(docker compose "$@")
 
 services="$("${compose[@]}" config --services)"
+# WAIT_SERVICES (space separated) limits the check to some services, e.g. an isolated test project
+services="${WAIT_SERVICES:-$services}"
 
 while true; do
   status="$("${compose[@]}" ps --all --format json | python3 -I -c '

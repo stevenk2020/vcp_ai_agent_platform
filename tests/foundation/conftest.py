@@ -29,6 +29,7 @@ ROLE_SECRETS = {
     "sync_writer": "sync_writer_password",
     "agent_ro": "agent_ro_password",
     "backup_ro": "backup_ro_password",
+    "api_rw": "api_rw_password",
 }
 
 
@@ -95,6 +96,12 @@ def agent_ro():
 @pytest.fixture
 def backup_ro():
     with connect("backup_ro") as conn:
+        yield conn
+
+
+@pytest.fixture
+def api_rw():
+    with connect("api_rw") as conn:
         yield conn
 
 

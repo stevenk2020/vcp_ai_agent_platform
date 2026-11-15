@@ -13,8 +13,8 @@ values() {
   local f
   for f in secrets/*; do
     [[ -f "$f" && "$(basename "$f")" != "README.md" ]] || continue
-    if [[ "$(basename "$f")" == "rclone_config" ]]; then
-      # ini-style file: only the values of secret-looking keys (client_secret, token, ...) count;
+    if [[ "$(basename "$f")" == "rclone_config" || "$(basename "$f")" == "api_external" ]]; then
+      # key=value file (rclone_config, api_external): only the values of secret-looking keys (client_secret, token, ...) count;
       # section headers such as [gdrive] and keys like type or scope are not secrets
       tr -d '\r' < "$f" | awk -F' *= *' 'tolower($1) ~ /(password|secret|token|key)/ { v=$0; sub(/^[^=]*= */, "", v); if (length(v) >= 8) print v }'
     else

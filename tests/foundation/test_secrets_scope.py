@@ -23,9 +23,12 @@ EXPECTED_SECRETS = {
         "sync_writer_password",
         "agent_ro_password",
         "backup_ro_password",
+        "api_rw_password",
     },
     "migrate": {"app_owner_password"},
     "backup": {"backup_ro_password", "backup_age_public_key", "rclone_config"},
+    "api": {"api_rw_password", "auth_pepper", "api_external"},
+    "api-test": {"api_rw_password", "auth_pepper", "api_external", "app_owner_password"},
 }
 
 COMPOSE_FILES = [REPO_ROOT / "compose.yaml", REPO_ROOT / "compose.backup.yaml"]
@@ -37,7 +40,7 @@ def _config() -> tuple[dict, str]:
                        for name in ("backup_age_public_key", "rclone_config"))
     if (REPO_ROOT / "compose.backup.yaml").exists() and backup_ready:
         args += ["-f", "compose.backup.yaml"]
-    args += ["--profile", "prod", "config", "--format", "json"]
+    args += ["--profile", "prod", "--profile", "test", "config", "--format", "json"]
     out = subprocess.run(args, cwd=REPO_ROOT, text=True, capture_output=True, check=True).stdout
     return json.loads(out), out
 
@@ -47,7 +50,7 @@ def _secret_values() -> list[str]:
     for path in SECRETS_DIR.iterdir():
         if path.is_file() and path.name != "README.md":
             for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-                if path.name == "rclone_config":
+                if path.name in ("rclone_config", "api_external"):
                     # ini-style: only values of secret-looking keys count (not [gdrive], type, scope)
                     key, _, value = line.partition("=")
                     if any(word in key.lower() for word in ("password", "secret", "token", "key")):

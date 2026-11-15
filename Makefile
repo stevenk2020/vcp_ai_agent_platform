@@ -22,7 +22,7 @@ MIN_COMPOSE := 2.29.0
 # Note: `up --wait` fails when a one-shot service (db-init, migrate) exits 0, so `up` starts with
 # `up -d` and then runs scripts/wait-healthy.sh (healthy for long-running, exit 0 for one-shot).
 
-.PHONY: help secrets check-compose up up-prod down migrate backup restore-test test scan-secrets
+.PHONY: help secrets check-compose up up-prod down migrate backup restore-test test test-api scan-secrets
 
 help:
 	@echo "targets: secrets up up-prod down migrate backup restore-test test scan-secrets"
@@ -61,6 +61,9 @@ restore-test:
 
 test:
 	@cd tests && uv run pytest $(ARGS)
+
+test-api:
+	@ARGS="$(ARGS)" bash scripts/test-api.sh
 
 scan-secrets:
 	@bash scripts/scan-secrets.sh

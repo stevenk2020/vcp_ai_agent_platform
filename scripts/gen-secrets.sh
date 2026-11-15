@@ -15,6 +15,8 @@ names=(
   sync_writer_password
   agent_ro_password
   backup_ro_password
+  api_rw_password
+  auth_pepper
 )
 
 created=()
@@ -33,6 +35,21 @@ if ((${#created[@]})); then
   echo "created: ${created[*]}"
 else
   echo "all password secrets already exist"
+fi
+
+# Template for the operator-filled external credentials (SMTP, Google). Never overwritten.
+if [[ ! -e secrets/api_external ]]; then
+  cat > secrets/api_external <<'TEMPLATE'
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+TEMPLATE
+  chmod 600 secrets/api_external
+  echo "created: api_external (template, fill in SMTP and Google values)"
 fi
 
 for operator_file in backup_age_public_key rclone_config; do

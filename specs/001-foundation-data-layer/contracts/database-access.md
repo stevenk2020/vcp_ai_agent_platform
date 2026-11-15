@@ -17,16 +17,16 @@ breaking change and needs a constitution-level review (principles I and II).
 
 `✔` allowed, `✘` must fail with a permission error. This table is the acceptance test.
 
-| Operation | `agent_ro` | `sync_writer` | `app_owner` | `backup_ro` |
-| --- | --- | --- | --- | --- |
-| SELECT in `serving` | ✔ | ✔ | ✘ | ✔ |
-| INSERT / UPDATE / DELETE / TRUNCATE in `serving` | ✘ | ✔ | ✘ | ✘ |
-| CREATE / ALTER / DROP / RENAME table in `serving` | ✘ | ✔ | ✘ | ✘ |
-| SELECT in `app` or `kb` | ✘ | ✘ | ✔ | ✔ |
-| Any write or DDL in `app` or `kb` | ✘ | ✘ | ✔ | ✘ |
-| CREATE anything in `public` | ✘ | ✘ | ✘ | ✘ |
-| CREATE TEMP table | ✘ | ✘ | ✘ | ✘ |
-| CREATE ROLE / CREATE EXTENSION | ✘ | ✘ | ✘ | ✘ |
+| Operation | `agent_ro` | `sync_writer` | `app_owner` | `backup_ro` | `api_rw` |
+| --- | --- | --- | --- | --- | --- |
+| SELECT in `serving` | ✔ | ✔ | ✘ | ✔ | ✘ |
+| INSERT / UPDATE / DELETE / TRUNCATE in `serving` | ✘ | ✔ | ✘ | ✘ | ✘ |
+| CREATE / ALTER / DROP / RENAME table in `serving` | ✘ | ✔ | ✘ | ✘ | ✘ |
+| SELECT in `app` or `kb` | ✘ | ✘ | ✔ | ✔ | table-level (see below) |
+| Any write or DDL in `app` or `kb` | ✘ | ✘ | ✔ | ✘ | table-level (see below) |
+| CREATE anything in `public` | ✘ | ✘ | ✘ | ✘ | ✘ |
+| CREATE TEMP table | ✘ | ✘ | ✘ | ✘ | ✘ |
+| CREATE ROLE / CREATE EXTENSION | ✘ | ✘ | ✘ | ✘ | ✘ |
 
 ## Session behaviour of `agent_ro`
 
@@ -50,3 +50,11 @@ breaking change and needs a constitution-level review (principles I and II).
 2. New tables in `serving` are created only by `sync_writer`; `agent_ro` gets `SELECT` automatically.
 3. A service that needs different access gets its own role added in the bootstrap step with its own secret; it never reuses another role's password.
 4. Role passwords are never written to SQL files, migrations, logs, or git.
+
+## Role added by feature 002 (`api_rw`)
+
+`api_rw` is the API service's role. It has `USAGE` on schema `app` and only the table rights granted by
+migrations: `SELECT, INSERT, UPDATE, DELETE` on `app.users`, `app.allowlist`, `app.email_codes`,
+`app.sessions`, and only `SELECT, INSERT` on `app.audit_events` (append-only). It has no access to `serving`,
+`kb` or `public`, no default privileges, no role settings. See
+`specs/002-passwordless-auth/data-model.md` for the table list.

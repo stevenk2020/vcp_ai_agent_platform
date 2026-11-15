@@ -41,8 +41,8 @@ def test_agent_has_no_privileges_on_existing_app_or_kb_tables(app_owner, superus
 def test_roles_are_not_privileged(superuser):
     rows = superuser.execute(
         "SELECT rolname, rolsuper, rolcreatedb, rolcreaterole FROM pg_roles "
-        "WHERE rolname IN ('app_owner','sync_writer','agent_ro','backup_ro')"
+        "WHERE rolname IN ('app_owner','sync_writer','agent_ro','backup_ro','api_rw')"
     ).fetchall()
-    assert len(rows) == 4
+    assert len(rows) == 5
     for name, sup, createdb, createrole in rows:
         assert (sup, createdb, createrole) == (False, False, False), name

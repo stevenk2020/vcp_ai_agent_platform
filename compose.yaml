@@ -8,6 +8,7 @@ networks:
 
 volumes:
   pgdata:
+  mail_capture:
   backup_local:
   caddy_data:
   caddy_config:
@@ -23,6 +24,12 @@ secrets:
     file: ./secrets/agent_ro_password
   backup_ro_password:
     file: ./secrets/backup_ro_password
+  api_rw_password:
+    file: ./secrets/api_rw_password
+  auth_pepper:
+    file: ./secrets/auth_pepper
+  api_external:
+    file: ./secrets/api_external
 
 services:
   postgres:
@@ -77,6 +84,7 @@ services:
       - sync_writer_password
       - agent_ro_password
       - backup_ro_password
+      - api_rw_password
     volumes:
       - ./db/bootstrap:/bootstrap:ro
     networks:
@@ -104,10 +112,80 @@ services:
     networks:
       - platform
 
+  # The API (future Agent Platform backend): sign-in, sessions, allowlist, audit.
+  api:
+    build:
+      context: ./api
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: ${APP_ENV:-development}
+      MAIL_BACKEND: ${MAIL_BACKEND:-capture}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://vcp.onepercentdata.site}
+      CODE_RATE_PER_EMAIL: ${CODE_RATE_PER_EMAIL:-5}
+      CODE_RATE_PER_IP: ${CODE_RATE_PER_IP:-20}
+      VERIFY_RATE_PER_IP: ${VERIFY_RATE_PER_IP:-30}
+      SESSION_DAYS: ${SESSION_DAYS:-7}
+      MAIL_CAPTURE_TTL_MINUTES: ${MAIL_CAPTURE_TTL_MINUTES:-60}
+    secrets:
+      - api_rw_password
+      - auth_pepper
+      - api_external
+    tmpfs:
+      - /run/api-secrets:mode=0500
+    volumes:
+      - mail_capture:/var/mail-capture
+    networks:
+      - platform
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  # Integration tests for the API. Only used through `make test-api`, in an isolated Compose project.
+  api-test:
+    build:
+      context: ./api
+      target: test
+    profiles: ["test"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: development
+      MAIL_BACKEND: capture
+      PUBLIC_ORIGIN: https://test.example
+      API_TEST_ISOLATED: ${API_TEST_ISOLATED:-0}
+    secrets:
+      - api_rw_password
+      - auth_pepper
+      - api_external
+      - app_owner_password
+    networks:
+      - platform
+
   caddy:
     image: caddy:2
     restart: unless-stopped
     profiles: ["prod"]
+    depends_on:
+      api:
+        condition: service_healthy
     environment:
       PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-vcp.onepercentdata.site}
     ports:

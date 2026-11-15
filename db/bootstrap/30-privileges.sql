@@ -7,7 +7,7 @@ DECLARE
   db text := current_database();
 BEGIN
   EXECUTE format('REVOKE CONNECT, TEMPORARY ON DATABASE %I FROM PUBLIC', db);
-  EXECUTE format('GRANT CONNECT ON DATABASE %I TO app_owner, sync_writer, agent_ro, backup_ro', db);
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO app_owner, sync_writer, agent_ro, backup_ro, api_rw', db);
 END
 $$;
 
@@ -30,3 +30,7 @@ ALTER ROLE agent_ro SET search_path = serving;
 -- sync_writer may use pgvector/citext types etc. through the extensions in public; extensions
 -- installed in public need USAGE on public for the roles that use their types.
 GRANT USAGE ON SCHEMA public TO app_owner, sync_writer;
+
+-- api_rw (the API service): may use schema app; table rights are granted per table by migrations,
+-- nothing on serving, kb or public.
+GRANT USAGE ON SCHEMA app TO api_rw;

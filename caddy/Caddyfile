@@ -4,8 +4,16 @@
 }
 
 {$PLATFORM_DOMAIN} {
-	respond /healthz 200
-	respond "AI Agent Platform: foundation layer is up." 200
+	# Caddy sets X-Forwarded-For to the real client address (no trusted proxies configured)
+	handle /v1/* {
+		reverse_proxy api:8000
+	}
+	handle /healthz {
+		respond 200
+	}
+	handle {
+		respond "AI Agent Platform is up." 200
+	}
 }
 
 # Internal-only block for the container healthcheck; this port is not published.
