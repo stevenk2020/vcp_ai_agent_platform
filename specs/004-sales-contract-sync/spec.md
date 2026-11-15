@@ -121,7 +121,7 @@ The sync only reads from the source. At start it checks that the source account 
 ### Edge Cases
 
 - The source returns the same `(entity, row_id)` twice (duplicate natural key): the run is refused with a clear reason (the copy would be ambiguous) and the previous copy stays.
-- The source adds, removes or changes the type of a column: the run is refused with the reason "source shape changed" and lists the difference; the previous copy stays; adding it back to the copy is a deliberate change (new migration), not silent.
+- The source removes a column the copy needs, or changes its type: the run is refused with the reason "source shape changed" and lists the difference; the previous copy stays. The source only *adding* a column is harmless: the column is not copied (see below), and the run records a warning naming it.
 - A source value does not fit the copy's column (text too long, number out of range): the run is refused, not truncated.
 - The source read succeeds but the replacement fails halfway (disk full, connection lost): the previous complete copy remains and the run is `failed`.
 - Two platform instances start at the same time (restart, accidental double start): only one sync runs at a time.
@@ -151,7 +151,7 @@ The sync only reads from the source. At start it checks that the source account 
 - **FR-013**: Only the sync identity MUST be able to write to the copy; the agent's read-only identity MUST only read it and MUST NOT see anything outside the copy's area; this MUST be proven by tests of both identities.
 - **FR-014**: At start, and before each run, the system MUST verify the source account is not an administrator or database owner and MUST refuse to run if it is; the worker MUST only send reads to the source.
 - **FR-015**: The table list, schedule, guards, read limit, retry counts and the snapshot-reading switch MUST be configuration, not code constants; adding another source table later MUST need configuration plus a copy definition, not a rewrite of the worker (only `sales_contract` is in scope now).
-- **FR-016**: The structure of the copy MUST be created by a migration following the repository's conventions, applied idempotently and covered by the foundation tests; the existing backup and restore MUST keep working and include the copy and the sync log.
+- **FR-016**: The structure of the copy and of the sync control records MUST be created by versioned, idempotent definitions applied automatically (by the sync identity, which is the only one allowed to create objects in the copy's area; plan R-4) and covered by the foundation tests; the existing backup and restore MUST keep working and include the copy and the sync log.
 - **FR-017**: A column dictionary for the copy MUST exist, listing each column with its meaning, type, nullability, and a sensitivity flag, consistent with `docs/topics/sales_contract.md`.
 - **FR-018**: Every behavior above MUST be verifiable with a fake source: the automated tests MUST NOT need a real SQL Server.
 - **FR-019**: The feature MUST ship operator documentation: how to check freshness, how to force a sync, what to do when the source is down, when a guard refuses, when the source shape changes, and how to turn on snapshot reading after the DBA enables it.
