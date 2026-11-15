@@ -12,8 +12,10 @@ from pathlib import Path
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 from sync import definition as df
+from sync.config import ConfigError
 from sync.runner import Runner
-from sync.source import SqlServerSource
+from sync.scrub import Scrubber
+from sync.source import SourceError, SqlServerSource
 from sync.store import Store
 
 log = logging.getLogger("sync.scheduler")
@@ -32,13 +34,14 @@ def source_factory(settings):
 
 class Service:
     def __init__(self, settings, definitions: list, *, store=None, poll_store=None, runner=None, clock=None,
-                 heartbeat_file: str = HEARTBEAT_FILE) -> None:
+                 heartbeat_file: str = HEARTBEAT_FILE, factory=None) -> None:
         self.s = settings
         self.defs = {d.copy: d for d in definitions}
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.store = store or Store(settings).connect()
         self.poll_store = poll_store or Store(settings).connect()
-        self.runner = runner or Runner(settings, self.store, self.defs, source_factory(settings), clock=self.clock)
+        self.runner = runner or Runner(settings, self.store, self.defs, factory if factory is not None else source_factory(settings),
+                                       clock=self.clock, scrubber=Scrubber(settings.secret_values))
         self.heartbeat_file = heartbeat_file
         self.run_lock = threading.Lock()  # one run at a time inside this process (the advisory lock covers other processes)
 
@@ -58,12 +61,40 @@ class Service:
         finally:
             for t in free:
                 self.store.unlock(t)
+        self._check_source()
         if not self.s.source_configured:
             log.warning('{"event": "source_not_configured", "detail": "scheduled refreshes are skipped until secrets/source_sqlserver is filled"}')
         else:
             log.info('{"event": "started", "tables": %s, "snapshot_read": "%s", "encryption": "%s"}',
                      list(self.defs), self.s.source_snapshot_read, self.s.source_encrypt)
         self.heartbeat()
+
+    def _check_source(self) -> None:
+        """At start: warn about a privileged account (the service stays alive and refuses every run) and refuse to
+        start when snapshot reads are switched on but the source says it has them off."""
+        factory = self.runner.factory
+        if factory is None:
+            return
+        definition = next(iter(self.defs.values()))
+        scrub = self.runner.scrub
+        try:
+            source = factory(definition)
+            source.__enter__()
+        except SourceError as exc:
+            log.warning("source not reachable at start (runs will retry): %s", scrub.clean(exc, 200) if scrub else "")
+            return
+        try:
+            info = source.account_info()
+            if info.privileged:
+                log.warning('{"event": "privileged_account", "detail": "%s: every run will be refused until the account is read-only"}',
+                            info.privileged)
+            if self.s.source_snapshot_read == "on" and not source.snapshot_enabled():
+                raise ConfigError("SOURCE_SNAPSHOT_READ=on but the source reports that snapshot isolation is off "
+                                  "(ALLOW_SNAPSHOT_ISOLATION); ask the DBA to enable it or set SOURCE_SNAPSHOT_READ=off")
+        except SourceError as exc:
+            log.warning("source check at start failed: %s", scrub.clean(exc, 200) if scrub else "")
+        finally:
+            source.__exit__(None, None, None)
 
     # ---- jobs ----
     def tick(self, table: str) -> None:

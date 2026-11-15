@@ -157,3 +157,37 @@ def test_read_errors_are_mapped(settings, d):
         conn.results["raise"] = Exception(1222, b"Lock request time out")
         with pytest.raises(src.SourceReadTimeout):
             list(s.read(d.select_sql()))
+
+
+# ---------- US6: one complete run through the real class, everything sent is accounted for ----------
+def test_a_full_run_sends_exactly_the_allowed_statements_and_touches_only_the_configured_table(settings, d):
+    import dataclasses
+
+    from sync.runner import Runner
+    from sync.scrub import Scrubber
+    from sync.store import Store
+    from tests.fakes import FakeClock
+
+    cols = [(c.name, c.source_type) for c in d.columns]
+    rows = [tuple("vcp" if c.name == "entity" else str(i) if c.name == "row_id" else None for c in d.columns) for i in range(5)]
+    conn = StubConn({"account": [(0, 0, 0, 0, 0)], "columns": cols, "snap": [(0,)], "rows": rows})
+    s = dataclasses.replace(settings, guard_min_rows=1)
+    recorded = []
+    factory = lambda definition: src.SqlServerSource(s, definition.source, recorder=recorded.append, connect=lambda **k: conn)
+    store = Store(s).connect()
+    store.apply_control()
+    try:
+        runner = Runner(s, store, {d.copy: d}, factory, clock=FakeClock(), sleep=lambda x: None, scrubber=Scrubber(s.secret_values))
+        assert runner.run_once("sales_contract", "schedule").outcome == "succeeded"
+    finally:
+        store.close()
+    expected = ["SET NOCOUNT ON", "SET DEADLOCK_PRIORITY LOW", "SET LOCK_TIMEOUT 300000",
+                "SET TRANSACTION ISOLATION LEVEL READ COMMITTED", "SELECT IS_SRVROLEMEMBER", "SELECT COLUMN_NAME, DATA_TYPE",
+                d.select_sql()]
+    assert len(recorded) == len(expected)
+    for sent, want in zip(recorded, expected):
+        assert sent.startswith(want), (sent[:60], want[:60])
+    for sql in recorded:
+        assert any(p.match(sql) for p in src.ALLOWED_STATEMENTS), sql
+        targets = set(re.findall(r"FROM ([\[\]\w.]+)", sql))
+        assert targets <= {"[dbo].[sales_contract]", "INFORMATION_SCHEMA.COLUMNS", "sys.databases"}, targets

@@ -54,7 +54,11 @@ def main(argv: list[str] | None = None, env: dict | None = None, secrets_dir=Non
     if command == "serve":
         from sync.scheduler import Service
 
-        Service(settings, definitions).serve()
+        try:
+            Service(settings, definitions, factory=factory).serve()
+        except cfg.ConfigError as exc:
+            print(f"sync: configuration error: {exc}", file=sys.stderr)
+            return 1
         return 0
     if command == "run":
         return cmd_run(settings, definitions, argv[1:], factory)

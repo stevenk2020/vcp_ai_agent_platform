@@ -17,6 +17,9 @@ from sync.store import Store, SwapFailed
 
 log = logging.getLogger("sync.runner")
 
+SNAPSHOT_OFF_TEXT = ("SOURCE_SNAPSHOT_READ=on but the source reports that snapshot isolation is off "
+                     "(ALLOW_SNAPSHOT_ISOLATION); ask the DBA to enable it or set SOURCE_SNAPSHOT_READ=off")
+
 FIXED_TEXT = {
     "source_unreachable": "The source could not be reached",
     "read_timeout": "The read of the source took longer than the read limit",
@@ -120,6 +123,8 @@ class Runner:
         source = self._open_source(d)
         try:
             guards.check_account(source.account_info())
+            if self.s.source_snapshot_read == "on" and not source.snapshot_enabled():
+                raise guards.RunFailed("unexpected", SNAPSHOT_OFF_TEXT)
             warnings.update(guards.check_shape(d, source.columns()))
             self.store.create_staging(d)
             converter = Converter(d)
@@ -169,6 +174,8 @@ class Runner:
                                   warnings=warnings, cur=self.store.conn)
             self.store.record_failure(d.copy, run_id, outcome, reason)
         self._log("run " + outcome, table=d.copy, run_id=run_id, reason=reason)
+        if reason == "privileged_account":
+            log.warning("run refused: privileged source account (%s)", clean)
         return RunResult(outcome, reason_code=reason, run_id=run_id, message=clean, warnings=warnings)
 
     def _log(self, event: str, **fields) -> None:
