@@ -95,3 +95,17 @@ def test_status_reports_failing_after_three_failures(run_cli, d, capsys, failure
 def test_status_before_the_service_ever_started(run_cli, capsys):
     run_cli("status")
     assert "not registered yet" in capsys.readouterr().out
+
+
+def test_run_without_a_source_secret_records_one_not_configured_failure(tmp_path, capsys):
+    import os
+
+    (tmp_path / "sync_writer_password").write_text((SECRETS / "sync_writer_password").read_text())
+    (tmp_path / "source_sqlserver").write_text("")
+    env = {"POSTGRES_HOST": os.environ.get("POSTGRES_HOST", "postgres"), "POSTGRES_DB": os.environ.get("POSTGRES_DB", "platform"),
+           "SYNC_TABLES_DIR": str(TABLES_DIR), "SYNC_SQL_DIR": str(TABLES_DIR.parent / "sql")}
+    assert cli.main(["run", "sales_contract"], env=env, secrets_dir=tmp_path) == 3
+    out = capsys.readouterr().out
+    assert "source_not_configured" in out and "secrets/source_sqlserver is empty" in out
+    cli.main(["status"], env=env, secrets_dir=tmp_path)
+    assert out and capsys.readouterr().out.count("source_not_configured") >= 1

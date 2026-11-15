@@ -229,3 +229,13 @@ async def test_the_request_text_in_the_audit_log_is_only_the_table(login, sw, sq
     await admin.post("/v1/admin/sync/sales_contract/run")
     shown = (await admin.get("/v1/admin/audit?action=sync_requested")).json()["items"]
     assert len(shown) == 1 and shown[0]["detail"] == {"table": "sales_contract"}
+
+
+async def test_run_text_has_no_secret_the_api_returns_what_the_worker_stored(login, sw, clock):
+    """The worker scrubs before it stores (sync/tests/test_secrets_in_output.py); the API adds nothing to it."""
+    put_state(sw)
+    put_run(sw, outcome="failed", started=clock.now(), reason_code="source_unreachable",
+            error_text="The source could not be reached: connection to *** failed (user ***, password ***)")
+    admin = await login(ADMIN, role="admin")
+    body = (await admin.get("/v1/admin/sync/runs")).text
+    assert "***" in body and "requested_by" not in body
