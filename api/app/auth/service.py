@@ -9,8 +9,9 @@ from dataclasses import dataclass
 import psycopg.errors
 
 from app import audit
-from app.errors import ApiError, invalid_code, not_configured, try_again_later
+from app.errors import ApiError, invalid_code, not_configured, rate_limited, try_again_later
 from app.mailer import MailSendError, NotConfigured
+from app.rate_limit import code_email_key, code_ip_key, verify_ip_key
 from app.security import (
     InvalidEmail, code_hmac, constant_time_equal, hash_token, new_code, new_token, normalize_email,
 )
@@ -35,12 +36,27 @@ def _normalize(email: str) -> str:
         raise ApiError(422, "invalid_request", "The email address is not valid.") from exc
 
 
+async def _enforce(state, key: str, limit: int, window: int, ip: str | None, scope: str) -> None:
+    """Count one hit; over the limit the refusal is audited (and committed) before it is raised."""
+    result = await state.limiter.hit(key, limit, window)
+    if not result.allowed:
+        async with state.db.transaction() as conn:
+            await audit.record(conn, state.clock, "rate_limited", "failure", ip=ip, detail={"scope": scope})
+        raise rate_limited(result.retry_after)
+
+
+async def enforce_verify_limit(state, ip: str | None) -> None:
+    await _enforce(state, verify_ip_key(ip or "unknown"), state.settings.verify_rate_per_ip, 600, ip, "verify")
+
+
 async def request_code(state, raw_email: str, ip: str | None) -> None:
     """Issue and mail a new code. The allowlist is never consulted here (no oracle for who is allowed)."""
     settings, clock, db = state.settings, state.clock, state.db
     if settings.mail_backend == "disabled":
         raise not_configured("Sign-in by email code is not available. Please sign in with Google.")
     email = _normalize(raw_email)
+    await _enforce(state, code_ip_key(ip or "unknown"), settings.code_rate_per_ip, 3600, ip, "ip")
+    await _enforce(state, code_email_key(email), settings.code_rate_per_email, 3600, ip, "email")
     code, code_id, now = new_code(), uuid.uuid4(), clock.now()
 
     async with db.transaction() as conn:
@@ -82,6 +98,7 @@ async def verify_code(state, raw_email: str, code: str, ip: str | None) -> SignI
     """Check a code. Attempts, cancellation and audit are committed BEFORE the error is raised,
     otherwise a rollback would erase the count of failed guesses."""
     settings, clock, db = state.settings, state.clock, state.db
+    await enforce_verify_limit(state, ip)
     try:
         email = normalize_email(raw_email)
     except InvalidEmail:

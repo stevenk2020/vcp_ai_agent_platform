@@ -15,13 +15,20 @@ COOKIE_NAME = "__Host-session"
 
 
 def client_ip(request: Request) -> str | None:
-    """The caller's address: first X-Forwarded-For value (set by Caddy), else the socket peer."""
+    """The caller's address: the first X-Forwarded-For value (set by Caddy) if it is a valid address,
+    otherwise the socket peer."""
     forwarded = request.headers.get("x-forwarded-for", "")
-    candidate = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "")
-    try:
-        return str(ipaddress.ip_address(candidate))
-    except ValueError:
-        return None
+    candidates = []
+    if forwarded:
+        candidates.append(forwarded.split(",")[0].strip())
+    if request.client:
+        candidates.append(request.client.host)
+    for candidate in candidates:
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
+    return None
 
 
 @dataclass(frozen=True)

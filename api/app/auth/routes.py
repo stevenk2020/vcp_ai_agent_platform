@@ -117,6 +117,7 @@ async def google_callback(request: Request, code: str | None = None, state: str 
     app_state = request.app.state
     _require_google(app_state)
     ip = client_ip(request)
+    await service.enforce_verify_limit(app_state, ip)
 
     async def fail(reason: str):
         await service.record_google_failure(app_state, ip, reason)

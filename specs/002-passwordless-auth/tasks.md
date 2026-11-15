@@ -154,12 +154,12 @@ description: "Task list for 002-passwordless-auth"
 
 ### Tests for User Story 5
 
-- [ ] T035 [P] [US5] Write `api/tests/integration/test_rate_limits.py` covering: the 6th code request for one email within the hour returns `429 rate_limited` with `Retry-After` and sends no mail; the 21st request from one IP returns `429` even for different emails; the message and status are identical for allowlisted and non-allowlisted addresses; after the fake clock passes the window requests work again; the per-IP verify cap (30 per 10 minutes) returns `429`; limits come from settings (override them in a test); the limiter stores no plain email (inspect Redis keys); the client IP is taken from `X-Forwarded-For` and recorded on the code row
+- [X] T035 [P] [US5] Write `api/tests/integration/test_rate_limits.py` covering: the 6th code request for one email within the hour returns `429 rate_limited` with `Retry-After` and sends no mail; the 21st request from one IP returns `429` even for different emails; the message and status are identical for allowlisted and non-allowlisted addresses; after the fake clock passes the window requests work again; the per-IP verify cap (30 per 10 minutes) returns `429`; limits come from settings (override them in a test); the limiter stores no plain email (inspect Redis keys); the client IP is taken from `X-Forwarded-For` and recorded on the code row
 
 ### Implementation for User Story 5
 
-- [ ] T036 [US5] Wire `api/app/rate_limit.py` into `request_code` and `verify_code` in `api/app/auth/service.py` and the routes (checks run before any mail or database work, `429` with `Retry-After`, audit `rate_limited` committed before the response, one generic message), and take the client IP from the proxy headers (`X-Forwarded-For`, trusted because only Caddy can reach the container)
-- [ ] T037 [US5] Run `make test-api ARGS="-k rate"`, then the whole `make test-api`; fix; commit
+- [X] T036 [US5] Wire `api/app/rate_limit.py` into `request_code` and `verify_code` in `api/app/auth/service.py` and the routes (checks run before any mail or database work, `429` with `Retry-After`, audit `rate_limited` committed before the response, one generic message), and take the client IP from the proxy headers (`X-Forwarded-For`, trusted because only Caddy can reach the container)
+- [X] T037 [US5] Run `make test-api ARGS="-k rate"`, then the whole `make test-api`; fix; commit
 
 **Checkpoint**: Abuse protection in place
 
