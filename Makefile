@@ -18,6 +18,8 @@ COMPOSE_FILES += -f compose.backup.yaml
 endif
 DC := docker compose $(COMPOSE_FILES)
 MIN_COMPOSE := 2.29.0
+# Note: `up --wait` fails when a one-shot service (db-init, migrate) exits 0, so `up` starts with
+# `up -d` and then runs scripts/wait-healthy.sh (healthy for long-running, exit 0 for one-shot).
 
 .PHONY: help secrets check-compose up up-prod down migrate backup restore-test test scan-secrets
 
@@ -35,11 +37,13 @@ check-compose:
 
 up: secrets check-compose
 	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: no age key yet"; fi
-	$(DC) up -d --wait
+	$(DC) up -d
+	@bash scripts/wait-healthy.sh $(COMPOSE_FILES)
 
 up-prod: secrets check-compose
 	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: no age key yet"; fi
-	$(DC) --profile prod up -d --wait
+	$(DC) --profile prod up -d
+	@bash scripts/wait-healthy.sh $(COMPOSE_FILES) --profile prod
 
 down: check-compose
 	$(DC) --profile prod down

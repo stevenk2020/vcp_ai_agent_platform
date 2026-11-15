@@ -22,16 +22,17 @@ def test_agent_has_no_usage_on_app_or_kb(schema):
         assert create == (False,)
 
 
-def test_agent_has_no_privileges_on_existing_app_or_kb_tables(app_owner):
+def test_agent_has_no_privileges_on_existing_app_or_kb_tables(app_owner, superuser):
     app_owner.execute("CREATE TABLE IF NOT EXISTS app.ext_probe (id int)")
     app_owner.execute("CREATE TABLE IF NOT EXISTS kb.ext_probe (id int)")
     try:
-        with connect("agent_ro") as conn:
-            for table in ("app.ext_probe", "kb.ext_probe"):
-                allowed = conn.execute(
-                    "SELECT has_table_privilege('agent_ro', %s, 'SELECT')", (table,)
-                ).fetchone()
-                assert allowed == (False,), table
+        # asked as superuser: as agent_ro the lookup itself fails (no USAGE on the schema),
+        # which is covered by test_agent_has_no_usage_on_app_or_kb
+        for table in ("app.ext_probe", "kb.ext_probe"):
+            allowed = superuser.execute(
+                "SELECT has_table_privilege('agent_ro', %s, 'SELECT')", (table,)
+            ).fetchone()
+            assert allowed == (False,), table
     finally:
         app_owner.execute("DROP TABLE IF EXISTS app.ext_probe")
         app_owner.execute("DROP TABLE IF EXISTS kb.ext_probe")
