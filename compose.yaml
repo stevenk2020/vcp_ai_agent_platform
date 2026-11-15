@@ -83,6 +83,28 @@ services:
     networks:
       - platform
 
+  # One-shot: applies pending SQL migrations as app_owner (tracked in app.schema_migrations).
+  migrate:
+    image: amacneil/dbmate:2
+    restart: "no"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+      DBMATE_MIGRATIONS_DIR: /db/migrations
+      DBMATE_MIGRATIONS_TABLE: app.schema_migrations
+      DBMATE_NO_DUMP_SCHEMA: "true"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'DATABASE_URL="postgres://app_owner:$$(cat /run/secrets/app_owner_password)@postgres:5432/$${POSTGRES_DB}?sslmode=disable"; export DATABASE_URL; exec dbmate migrate'
+    secrets:
+      - app_owner_password
+    volumes:
+      - ./db/migrations:/db/migrations:ro
+    networks:
+      - platform
+
   caddy:
     image: caddy:2
     restart: unless-stopped

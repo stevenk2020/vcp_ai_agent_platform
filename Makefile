@@ -49,7 +49,7 @@ down: check-compose
 	$(DC) --profile prod down
 
 migrate:
-	@echo "not implemented yet (T043)"; exit 1
+	$(DC) run --rm migrate
 
 backup:
 	@echo "not implemented yet (T037)"; exit 1

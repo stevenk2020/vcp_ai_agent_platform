@@ -39,7 +39,7 @@ rotating a secret file and restarting the stack rotates the role password.
 | --- | --- |
 | `version` | Timestamp-prefixed file name (for example `20261115000000_baseline`) |
 | `applied_at` | When it ran |
-| state | `pending` → `applied` (recorded by dbmate in `schema_migrations`); never edited after applying |
+| state | `pending` → `applied` (recorded by dbmate in `app.schema_migrations` (the `public` schema is closed to every role, so the tracking table lives in `app`)); never edited after applying |
 
 Baseline migration creates `app.platform_meta(key text primary key, value text not null, updated_at timestamptz not null default now())` and seeds `schema_generation = 1`. This exists to make idempotency testable.
 

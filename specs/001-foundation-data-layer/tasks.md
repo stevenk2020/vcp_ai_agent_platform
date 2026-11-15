@@ -152,13 +152,13 @@ description: "Task list for 001-foundation-data-layer"
 
 ### Tests for User Story 5
 
-- [ ] T041 [P] [US5] Write `tests/foundation/test_migrations.py`: run `make migrate` twice; assert both exit 0 and the second output reports nothing applied; assert `app.platform_meta` exists with exactly one row where `key = 'schema_generation'` and `value = '1'`; add a temporary second migration file in a temp copy of `db/migrations`, run, assert only that one was applied; assert `agent_ro` cannot read `app.platform_meta`; add a deliberately failing migration in the temp copy and assert it leaves no partial change (dbmate runs each migration in a transaction) and that the next run still reports it as pending
+- [X] T041 [P] [US5] Write `tests/foundation/test_migrations.py`: run `make migrate` twice; assert both exit 0 and the second output reports nothing applied; assert `app.platform_meta` exists with exactly one row where `key = 'schema_generation'` and `value = '1'`; add a temporary second migration file in a temp copy of `db/migrations`, run, assert only that one was applied; assert `agent_ro` cannot read `app.platform_meta`; add a deliberately failing migration in the temp copy and assert it leaves no partial change (dbmate runs each migration in a transaction) and that the next run still reports it as pending
 
 ### Implementation for User Story 5
 
-- [ ] T042 [US5] Create `db/migrations/20261115000000_baseline.sql` (dbmate format with `-- migrate:up` and `-- migrate:down`): `CREATE TABLE IF NOT EXISTS app.platform_meta (key text PRIMARY KEY, value text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now());` then `INSERT INTO app.platform_meta (key, value) VALUES ('schema_generation', '1') ON CONFLICT (key) DO NOTHING;`; down drops the table
-- [ ] T043 [US5] Add `migrate` one-shot service to `compose.yaml`: image `amacneil/dbmate` (pin a version tag), mounts `db/migrations/` read-only, `DBMATE_MIGRATIONS_DIR=/db/migrations`, `DBMATE_NO_DUMP_SCHEMA=true`, `DATABASE_URL` built at start from `/run/secrets/app_owner_password` through `entrypoint: ["/bin/sh", "-c", ...]` (no password in the Compose file), secret `app_owner_password` only, `depends_on: db-init: condition: service_completed_successfully`, `restart: "no"`; `make migrate` runs `docker compose run --rm migrate up`; `make up` includes it
-- [ ] T044 [US5] Run `make test ARGS="-k migrations"`; fix until green; commit
+- [X] T042 [US5] Create `db/migrations/20261115000000_baseline.sql` (dbmate format with `-- migrate:up` and `-- migrate:down`): `CREATE TABLE IF NOT EXISTS app.platform_meta (key text PRIMARY KEY, value text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now());` then `INSERT INTO app.platform_meta (key, value) VALUES ('schema_generation', '1') ON CONFLICT (key) DO NOTHING;`; down drops the table
+- [X] T043 [US5] Add `migrate` one-shot service to `compose.yaml`: image `amacneil/dbmate` (pin a version tag), mounts `db/migrations/` read-only, `DBMATE_MIGRATIONS_DIR=/db/migrations`, `DBMATE_NO_DUMP_SCHEMA=true`, `DATABASE_URL` built at start from `/run/secrets/app_owner_password` through `entrypoint: ["/bin/sh", "-c", ...]` (no password in the Compose file), secret `app_owner_password` only, `depends_on: db-init: condition: service_completed_successfully`, `restart: "no"`; `make migrate` runs `docker compose run --rm migrate up`; `make up` includes it
+- [X] T044 [US5] Run `make test ARGS="-k migrations"`; fix until green; commit
 
 **Checkpoint**: Later features can add tables by adding SQL files only
 
