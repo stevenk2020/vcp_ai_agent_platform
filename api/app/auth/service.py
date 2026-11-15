@@ -6,6 +6,8 @@ import logging
 import uuid
 from dataclasses import dataclass
 
+import psycopg.errors
+
 from app import audit
 from app.errors import ApiError, invalid_code, not_configured, try_again_later
 from app.mailer import MailSendError, NotConfigured
@@ -158,23 +160,62 @@ def _seconds(n: int):
 
 async def complete_sign_in(state, email: str, ip: str | None, via: str) -> SignInOutcome:
     """The allowlist gate, shared by every sign-in path once the email has been proven."""
+    try:
+        return await _gate(state, email, ip, via)
+    except psycopg.errors.UniqueViolation:
+        # two sign-ins for a brand-new address at the same moment: the second one retries and
+        # finds the row the first one created
+        return await _gate(state, email, ip, via)
+
+
+async def _gate(state, email: str, ip: str | None, via: str) -> SignInOutcome:
     clock, db = state.clock, state.db
     async with db.transaction() as conn:
-        cursor = await conn.execute("SELECT id, role, status FROM app.users WHERE email = %s FOR UPDATE", (email,))
+        cursor = await conn.execute(
+            "SELECT id, role, status, suspended_reason FROM app.users WHERE email = %s FOR UPDATE", (email,)
+        )
         user = await cursor.fetchone()
+        entry = await _find_entry(conn, email)
+        now = clock.now()
 
-        if user is not None and user["status"] == "active":
-            user_id, role = user["id"], user["role"]
-        else:
-            entry = await _find_entry(conn, email) if user is None else None
-            if entry is None:
-                await audit.record(conn, clock, "code_verified", target=email, ip=ip, detail={"via": via})
-                return SignInOutcome(status="pending")
+        if user is None and entry is None:
+            await conn.execute("INSERT INTO app.users (email, status) VALUES (%s, 'pending')", (email,))
+            await audit.record(conn, clock, "code_verified", target=email, ip=ip, detail={"via": via})
+            await audit.record(conn, clock, "signin_pending", target=email, ip=ip)
+            return SignInOutcome(status="pending")
+
+        if user is None:  # allowlisted newcomer
             created = await conn.execute(
                 "INSERT INTO app.users (email, role, status) VALUES (%s, %s, 'active') RETURNING id",
                 (email, entry["default_role"]),
             )
             user_id, role = (await created.fetchone())["id"], entry["default_role"]
+        elif user["status"] == "active":
+            user_id, role = user["id"], user["role"]
+        elif entry is not None and (
+            user["status"] == "pending"
+            or (user["status"] == "suspended" and user["suspended_reason"] == "allowlist_removed")
+        ):
+            # an entry now matches a waiting person, or one who was suspended only because their
+            # entry had been removed: activate them with the entry's role (no separate approval)
+            await conn.execute(
+                "UPDATE app.users SET status = 'active', role = %s, suspended_reason = NULL, updated_at = %s "
+                "WHERE id = %s",
+                (entry["default_role"], now, user["id"]),
+            )
+            user_id, role = user["id"], entry["default_role"]
+        elif user["status"] == "pending":
+            await audit.record(conn, clock, "code_verified", actor_user_id=user["id"], actor_email=email,
+                               target=email, ip=ip, detail={"via": via})
+            await audit.record(conn, clock, "signin_pending", actor_user_id=user["id"], actor_email=email,
+                               target=email, ip=ip)
+            return SignInOutcome(status="pending")
+        else:  # suspended by an admin, rejected, or suspended by removal with no entry any more
+            await audit.record(conn, clock, "code_verified", actor_user_id=user["id"], actor_email=email,
+                               target=email, ip=ip, detail={"via": via})
+            await audit.record(conn, clock, "signin_refused", "failure", actor_user_id=user["id"],
+                               actor_email=email, target=email, ip=ip, detail={"status": user["status"]})
+            return SignInOutcome(status="refused")
 
         token = await create_session(conn, state, user_id, ip)
         await audit.record(conn, clock, "code_verified", actor_user_id=user_id, actor_email=email,

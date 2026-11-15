@@ -26,8 +26,9 @@ if ! docker compose "${args[@]}" config --services | grep -qx api-test; then
   exit 1
 fi
 
-docker compose "${args[@]}" up -d --build postgres redis db-init migrate
+docker compose "${args[@]}" build --quiet api-test >/dev/null
+docker compose "${args[@]}" up -d postgres redis db-init migrate
 WAIT_SERVICES="postgres redis db-init migrate" bash scripts/wait-healthy.sh "${args[@]}"
 
 # shellcheck disable=SC2086
-docker compose "${args[@]}" run --rm --build -e API_TEST_ISOLATED=1 api-test pytest ${ARGS:-}
+docker compose "${args[@]}" run --rm -e API_TEST_ISOLATED=1 api-test pytest ${ARGS:-}
