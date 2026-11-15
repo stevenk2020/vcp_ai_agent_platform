@@ -71,3 +71,29 @@ async def test_static_files_are_served_with_the_right_type_and_headers(client, n
     assert response.status_code == 200 and kind in response.headers["content-type"]
     assert_hardened(response)
     assert response.headers["cache-control"] == "no-cache"
+
+
+async def test_every_page_and_api_response_has_the_headers_and_only_sign_in_routes_set_cookies(
+        app, client, login, login_pending, new_client):
+    admin = await login("hdr-admin@example.com", role="admin")
+    waiting = await login_pending("hdr-waiting@example.org")
+    signed_out = new_client()
+    seen = []
+    for who, c in (("anonymous", signed_out), ("waiting", waiting), ("admin", admin)):
+        for path in ("/", "/static/app.js", "/static/style.css", "/static/common.js", "/static/favicon.svg", "/nope",
+                     "/admin", "/admin/assets/admin.js", "/v1/health", "/v1/me", "/v1/access", "/v1/admin/users"):
+            response = await c.get(path, follow_redirects=False)
+            seen.append((who, path, response.status_code))
+            assert_hardened(response)
+            assert "unsafe-inline" not in response.headers["content-security-policy"], (who, path)
+            if response.headers.get("content-type", "").startswith("text/html"):
+                assert response.headers["cache-control"] == "no-store", (who, path)
+            assert "set-cookie" not in response.headers, (who, path)  # plain reads never set cookies
+    assert any(status == 200 for _, path, status in seen if path == "/admin")
+
+
+async def test_sign_out_clears_the_cookie_and_keeps_the_headers(login):
+    c = await login("hdr@example.com")
+    response = await c.post("/v1/auth/logout")
+    assert response.status_code == 204 and "__host-session=" in response.headers["set-cookie"].lower()
+    assert_hardened(response)

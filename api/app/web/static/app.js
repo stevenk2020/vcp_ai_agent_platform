@@ -41,7 +41,8 @@ async function load(result) {
     if (access.data.status === "active") return showInside(access.data);
     return showRequest(access.data);
   }
-  if (access.status === 401 && result && RESULT_TEXT[result]) return showMessage(...RESULT_TEXT[result]);
+  // own-property check: the value comes from the URL, so "constructor" or "__proto__" must not match
+  if (access.status === 401 && result && Object.hasOwn(RESULT_TEXT, result)) return showMessage(...RESULT_TEXT[result]);
   if (access.status !== 401) return showMessage("Something went wrong", GENERIC_ERROR);
   // the email-code form only exists when the server says mail delivery is on
   const mail = health.data && health.data.mail_backend;
