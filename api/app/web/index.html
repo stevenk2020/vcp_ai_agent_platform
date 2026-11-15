@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Agent Platform</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/style.css">
+<script type="module" src="/static/app.js"></script>
+</head>
+<body>
+<main class="card">
+
+<section id="view-loading" data-view>
+<p class="muted">Loading…</p>
+</section>
+
+<section id="view-signin" data-view hidden>
+<h1>AI Agent Platform</h1>
+<p>Sign in to continue.</p>
+<p><a class="btn" id="google-link" href="/v1/auth/google/start">Sign in with Google</a></p>
+<form id="code-form" hidden>
+<h2>Or use an emailed code</h2>
+<label class="field"><span>Email address</span><input id="code-email" type="email" autocomplete="email" maxlength="254" required></label>
+<label class="field" id="code-field" hidden><span>6-digit code</span><input id="code-value" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label>
+<div class="row"><button type="submit" id="code-submit">Send code</button></div>
+</form>
+<p id="signin-note" class="status" hidden></p>
+</section>
+
+<section id="view-inside" data-view hidden>
+<h1>Welcome</h1>
+<p>You are signed in as <strong id="inside-email"></strong> with the role <strong id="inside-role"></strong>.</p>
+<p class="muted">The chat is coming in a later release.</p>
+<div class="row">
+<a class="btn btn-secondary" id="admin-link" href="/admin" hidden>Admin area</a>
+<button type="button" class="secondary" id="signout-inside">Sign out</button>
+</div>
+</section>
+
+<section id="view-request" data-view hidden>
+<h1>Your access request is waiting</h1>
+<p>You are signed in as <strong id="request-email"></strong>. An administrator has to approve you before you can use anything else. Nothing else is available until you are approved.</p>
+<form id="request-form" hidden>
+<label class="field"><span>Your name (optional, up to 80 characters)</span><input id="request-name" type="text" maxlength="80" autocomplete="name"></label>
+<label class="field"><span>Why do you need access? (optional, up to 500 characters)</span><textarea id="request-reason" rows="4" maxlength="500"></textarea></label>
+<div class="row"><button type="submit">Send request</button></div>
+</form>
+<div id="request-sent" hidden>
+<p class="status ok">Your request has been sent.</p>
+<p><strong>Name:</strong></p>
+<p class="quote" id="sent-name"></p>
+<p><strong>Reason:</strong></p>
+<p class="quote" id="sent-reason"></p>
+</div>
+<p id="request-note" class="status" hidden></p>
+<div class="row">
+<button type="button" id="request-refresh">Check again</button>
+<button type="button" class="secondary" id="signout-request">Sign out</button>
+</div>
+</section>
+
+<section id="view-message" data-view hidden>
+<h1 id="message-title"></h1>
+<p id="message-text"></p>
+<p><a class="btn" href="/">Back to sign in</a></p>
+</section>
+
+</main>
+</body>
+</html>

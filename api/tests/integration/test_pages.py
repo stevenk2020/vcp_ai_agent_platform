@@ -49,3 +49,25 @@ async def test_a_state_changing_request_without_origin_is_still_refused_with_hea
     response = await client.post("/", headers={"Origin": ""})
     assert response.status_code == 403 and response.json()["error"] == "origin_not_allowed"
     assert_hardened(response)
+
+
+async def test_the_start_page_links_to_google_and_loads_only_site_files(client):
+    response = await client.get("/")
+    assert response.status_code == 200 and response.headers["content-type"].startswith("text/html")
+    assert_hardened(response)
+    assert 'href="/v1/auth/google/start"' in response.text
+    import re
+
+    assert not re.search(r"<script(?![^>]*\bsrc=)", response.text), "inline script"
+    for url in re.findall(r'(?:src|href)="([^"]+)"', response.text):
+        assert url.startswith("/"), url  # no external origin
+
+
+@pytest.mark.parametrize("name,kind", [
+    ("app.js", "javascript"), ("common.js", "javascript"), ("style.css", "text/css"), ("favicon.svg", "image/svg+xml"),
+])
+async def test_static_files_are_served_with_the_right_type_and_headers(client, name, kind):
+    response = await client.get(f"/static/{name}")
+    assert response.status_code == 200 and kind in response.headers["content-type"]
+    assert_hardened(response)
+    assert response.headers["cache-control"] == "no-cache"

@@ -38,6 +38,11 @@ def not_found_page() -> Response:
     return html("404.html", 404)
 
 
+@router.get("/", include_in_schema=False)
+async def index():
+    return html("index.html")
+
+
 @router.get("/static/{name:path}", include_in_schema=False)
 async def static_file(name: str):
     path = safe_file(STATIC, name)
