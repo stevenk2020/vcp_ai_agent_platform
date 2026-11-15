@@ -170,6 +170,7 @@ async def complete_sign_in(state, email: str, ip: str | None, via: str) -> SignI
 
 async def _gate(state, email: str, ip: str | None, via: str) -> SignInOutcome:
     clock, db = state.clock, state.db
+    proof = "code_verified" if via == "code" else "google_signin"
     async with db.transaction() as conn:
         cursor = await conn.execute(
             "SELECT id, role, status, suspended_reason FROM app.users WHERE email = %s FOR UPDATE", (email,)
@@ -180,7 +181,7 @@ async def _gate(state, email: str, ip: str | None, via: str) -> SignInOutcome:
 
         if user is None and entry is None:
             await conn.execute("INSERT INTO app.users (email, status) VALUES (%s, 'pending')", (email,))
-            await audit.record(conn, clock, "code_verified", target=email, ip=ip, detail={"via": via})
+            await audit.record(conn, clock, proof, target=email, ip=ip, detail={"via": via})
             await audit.record(conn, clock, "signin_pending", target=email, ip=ip)
             return SignInOutcome(status="pending")
 
@@ -205,20 +206,20 @@ async def _gate(state, email: str, ip: str | None, via: str) -> SignInOutcome:
             )
             user_id, role = user["id"], entry["default_role"]
         elif user["status"] == "pending":
-            await audit.record(conn, clock, "code_verified", actor_user_id=user["id"], actor_email=email,
+            await audit.record(conn, clock, proof, actor_user_id=user["id"], actor_email=email,
                                target=email, ip=ip, detail={"via": via})
             await audit.record(conn, clock, "signin_pending", actor_user_id=user["id"], actor_email=email,
                                target=email, ip=ip)
             return SignInOutcome(status="pending")
         else:  # suspended by an admin, rejected, or suspended by removal with no entry any more
-            await audit.record(conn, clock, "code_verified", actor_user_id=user["id"], actor_email=email,
+            await audit.record(conn, clock, proof, actor_user_id=user["id"], actor_email=email,
                                target=email, ip=ip, detail={"via": via})
             await audit.record(conn, clock, "signin_refused", "failure", actor_user_id=user["id"],
                                actor_email=email, target=email, ip=ip, detail={"status": user["status"]})
             return SignInOutcome(status="refused")
 
         token = await create_session(conn, state, user_id, ip)
-        await audit.record(conn, clock, "code_verified", actor_user_id=user_id, actor_email=email,
+        await audit.record(conn, clock, proof, actor_user_id=user_id, actor_email=email,
                            target=email, ip=ip, detail={"via": via})
         await audit.record(conn, clock, "session_created", actor_user_id=user_id, actor_email=email,
                            target=email, ip=ip)
@@ -234,3 +235,8 @@ async def revoke_session(state, session_id, user, ip: str | None) -> None:
         )
         await audit.record(conn, clock, "signed_out", actor_user_id=user.id, actor_email=user.email,
                            target=user.email, ip=ip)
+
+
+async def record_google_failure(state, ip: str | None, reason: str) -> None:
+    async with state.db.transaction() as conn:
+        await audit.record(conn, state.clock, "google_signin", "failure", ip=ip, detail={"reason": reason})

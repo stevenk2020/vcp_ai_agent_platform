@@ -16,6 +16,7 @@ from app.clock import Clock, SystemClock
 from app.config import Settings, load_settings
 from app.db import Database
 from app.errors import ApiError
+from app.google import build_identity
 from app.mailer import Mailer, build_mailer
 from app.rate_limit import RateLimiter
 
@@ -35,6 +36,7 @@ def create_app(
     settings = settings or load_settings()
     clock = clock or SystemClock()
     mailer = mailer or build_mailer(settings, clock)
+    identity = identity or build_identity(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
