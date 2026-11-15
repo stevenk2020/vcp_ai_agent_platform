@@ -38,7 +38,7 @@ implementation time but do not change the design.
 
 ## R-6: Backup and restore
 
-- **Decision**: A `backup` container runs a daily job (busybox `crond`): `pg_dump -Fc` of the application database plus `pg_dumpall --globals-only` (roles), encrypted with `age` using the operator's public key, uploaded with `rclone` to the operator's remote, local copy retained 7 days. Success is recorded as a timestamp file; the container healthcheck fails if the last success is older than 26 hours, so a missing or stale backup shows as `unhealthy` in `docker compose ps` (FR-013). Restore is a documented manual procedure; `scripts/restore-test.sh` restores the latest backup into a scratch database and compares per-schema row counts with the live database. Only the age *public* key lives on the VPS; the private key stays with the operator.
+- **Decision**: The `backup` service lives in `compose.backup.yaml`, loaded by `make up` only once `secrets/backup_age_public_key` exists, because Compose cannot declare optional secret files and a missing key must not break `make up`. A `backup` container runs a daily job (busybox `crond`): `pg_dump -Fc` of the application database plus `pg_dumpall --globals-only` (roles), encrypted with `age` using the operator's public key, uploaded with `rclone` to the operator's remote, local copy retained 7 days. Success is recorded as a timestamp file; the container healthcheck fails if the last success is older than 26 hours, so a missing or stale backup shows as `unhealthy` in `docker compose ps` (FR-013). Restore is a documented manual procedure; `scripts/restore-test.sh` restores the latest backup into a scratch database and compares per-schema row counts with the live database. Only the age *public* key lives on the VPS; the private key stays with the operator.
 - **Rationale**: Backups carry business data off the machine, so encrypting them protects against a leaked bucket. A real restore into an empty database is the only proof a backup works (FR-012).
 - **Alternatives**: WAL archiving / pgBackRest / Barman (point-in-time recovery is more than the current scale needs; revisit if the data becomes irreplaceable); VPS provider snapshots only (not tested restore, same provider failure domain).
 - **Operator choice (2026-11-15)**: off-site destination is **Google Drive**, accessed through an rclone `drive` remote (for example `gdrive:platform-backups`). Practical points that shape the implementation:
@@ -63,7 +63,7 @@ implementation time but do not change the design.
 
 ## R-9: Network exposure
 
-- **Decision**: One internal Compose network. In production only Caddy publishes ports 80 and 443. In development, Postgres is published on `127.0.0.1` only so tests and psql can reach it; the VPS profile does not publish it. Redis is never published.
+- **Decision**: One internal Compose network. In production only Caddy publishes ports 80 and 443. Postgres is published on `127.0.0.1` only, in every environment including production (loopback is not reachable from outside and lets tests and `psql` over SSH work). Redis is never published.
 - **Rationale**: Principle III and the technical spec require internal-only services; a localhost-only dev port keeps testing simple.
 
 ## R-10: Tests

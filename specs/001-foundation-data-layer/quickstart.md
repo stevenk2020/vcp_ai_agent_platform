@@ -9,7 +9,7 @@ End-to-end checks that prove each success criterion. Interfaces are in
 - A Google Drive rclone remote named `gdrive` (token created with `rclone authorize "drive"` on a
   machine with a browser or an SSH port forward, stored in `secrets/rclone_config`; see research R-6)
 - An age key pair (public key goes in `secrets/backup_age_public_key`, private key stays with you).
-  Not created yet: Scenario 4 is blocked until it exists
+  Not created yet: until it exists `make up` starts without the backup service and Scenario 4 (real Drive) is blocked; the automated backup tests use a throwaway key
 - For production: `PLATFORM_DOMAIN=vcp.onepercentdata.site` with an `A` record pointing at the VPS and
   ports 80/443 open
 
@@ -28,7 +28,7 @@ Expect: exit 0, all services `healthy`, total time under 10 minutes on a clean m
 ## Scenario 2 — Agent role is locked down (SC-002, SC-003, FR-004 to FR-007)
 
 ```bash
-make test -- -k permissions
+make test ARGS="-k permissions"
 ```
 
 Expect: reads on a seeded `serving` table succeed; every write, DDL, temp-table, and `app`/`kb`
@@ -51,7 +51,7 @@ secrets.
 ```bash
 make backup
 make restore-test
-make test -- -k backup_staleness   # simulates a last_success older than 26 hours
+make test ARGS="-k backup_staleness"   # simulates a last_success older than 26 hours
 docker compose ps                  # backup shows unhealthy when stale
 ```
 

@@ -5,13 +5,13 @@ The interface the developer/operator uses. Every command exits non-zero on failu
 | Command | Does | Success signal |
 | --- | --- | --- |
 | `make secrets` | Creates any missing file in `secrets/` with a random value; never overwrites an existing one; prompts-free | Lists created file names, no values |
-| `make up` | Starts postgres, redis, bootstrap, migrations, backup job and waits for health (development) | Exit 0 and every service `healthy` |
+| `make up` | Starts postgres, redis, bootstrap, migrations and, when an age key exists, the backup job; waits for health (development) | Exit 0 and every service `healthy` |
 | `make up-prod` | Same plus Caddy with HTTPS for `PLATFORM_DOMAIN` | Exit 0, `https://$PLATFORM_DOMAIN/healthz` returns 200 |
 | `make down` | Stops the stack, keeps volumes | Exit 0 |
 | `make migrate` | Applies pending migrations only | Exit 0; second run changes nothing |
 | `make backup` | Runs one backup now (same code path as the daily job) | New file locally and off-site; `last_success` updated |
 | `make restore-test` | Restores the latest backup into a scratch database and compares per-schema row counts | Exit 0 and a matching-counts report |
-| `make test` | Runs the acceptance suite in `tests/foundation` | All tests pass |
+| `make test ARGS="-k name"` | Runs the acceptance suite in `tests/foundation` (ARGS optional) | All tests pass |
 | `make scan-secrets` | Fails if any secret value appears in tracked files or history | Exit 0 |
 
 ## Health

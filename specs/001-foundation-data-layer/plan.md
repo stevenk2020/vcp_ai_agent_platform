@@ -29,7 +29,7 @@ and forbidden operations. See [research.md](research.md) for the decisions behin
 
 **Project Type**: Infrastructure / ops repository (no web or mobile code in this feature)
 
-**Performance Goals**: Stack healthy from a clean machine in under 10 minutes including image pulls (SC-001); backup of the expected data size (a few hundred MB at most at this scale) completes in under 5 minutes
+**Performance Goals**: Stack healthy from a clean machine in under 10 minutes including image pulls (SC-001)
 
 **Constraints**: Single VPS (~4 vCPU / 8 GB, unmeasured); `agent_ro` queries cancelled at 30 s; no secret values in git or in containers that do not need them; Postgres and Redis not published on public interfaces; no `docker.sock` mounts (constitution III)
 
@@ -43,7 +43,7 @@ and forbidden operations. See [research.md](research.md) for the decisions behin
 | --- | --- | --- |
 | I. Permission-First Security | Partly: DB roles are the lowest enforcement layer; auth itself is out of scope | Pass. Roles are least-privilege and enforced by the database, not by prompts |
 | II. Data Isolation and Safe SQL | Yes: `serving` + `agent_ro` (read-only, 30 s timeout, only `serving`) | Pass. Delivered by FR-004, FR-006, FR-007. The sqlglot validator and atomic swap are later features, but the role/privilege model here is designed for them (`sync_writer` owns `serving`, default privileges grant `agent_ro` SELECT on swapped-in tables) |
-| III. Untrusted Content and Contained Execution | Partly: no `docker.sock` mount, internal-only network | Pass. Compose mounts no Docker socket; Postgres and Redis publish no host ports in production |
+| III. Untrusted Content and Contained Execution | Partly: no `docker.sock` mount, internal-only network | Pass. Compose mounts no Docker socket (asserted by test T026); Redis publishes no port; Postgres binds only to `127.0.0.1`; only Caddy publishes public ports |
 | IV. Small Core, Pluggable Everything | Yes: avoid unnecessary services | Pass. Five small services; no orchestrator, no extra tooling beyond Compose |
 | V. Verifiable Answers | No (no answers produced) | N/A |
 | VI. Observability and Auditability | Partly: stale-backup visibility, health status | Pass. Backup freshness is a health check; usage/audit logging is later |
@@ -75,7 +75,8 @@ specs/001-foundation-data-layer/
 ### Source Code (repository root)
 
 ```text
-compose.yaml                 # postgres, redis, db-init, migrate, backup, caddy (prod profile)
+compose.yaml                 # postgres, redis, db-init, migrate, caddy (prod profile)
+compose.backup.yaml          # backup service + its two operator-provided secrets; loaded only when the age key exists
 Makefile                     # up, up-prod, down, migrate, backup, restore-test, test
 .env.example                 # non-secret settings and secret names (no values)
 secrets/                     # gitignored; one file per secret; README.md only is tracked
@@ -96,8 +97,11 @@ scripts/
 ├── restore-test.sh          # restore latest backup into scratch DB and compare counts
 └── scan-secrets.sh          # fails if known secret values appear in tracked files
 tests/
-└── foundation/              # pytest: roles, timeout, migrations, backup round trip
+└── foundation/              # pytest: roles, timeout, migrations, backup round trip, compose.test.yaml override
+README.md                    # first-run steps
+.github/workflows/ci.yml     # make up, make test, make scan-secrets
 docs/
+├── vps-setup.md             # Ubuntu VPS setup, firewall, HTTPS troubleshooting
 ├── restore.md               # documented restore procedure
 └── phase0-verification.md   # the four open sales_contract items with owner/status/findings
 ```
