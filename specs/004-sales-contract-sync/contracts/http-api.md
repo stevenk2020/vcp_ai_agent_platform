@@ -61,7 +61,7 @@ No body. Records a request; the worker starts it within about 5 seconds.
 | Result | When |
 | --- | --- |
 | `202 {"status":"requested"}` | accepted; audited as `sync_requested` with `{"table": ...}` (no other detail) |
-| `409 {"error":"sync_busy"}` | a request is pending or a run is active |
+| `409 {"error":"sync_busy"}` | a pending request younger than `SYNC_REQUEST_TTL_MINUTES` (15) exists, or a run is active |
 | `404 {"error":"unknown_table"}` | table not registered by the worker |
 | `403` / `401` | not an admin / not signed in |
 

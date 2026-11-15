@@ -40,7 +40,7 @@ personal data is recorded here). Source: SQL Server 2019 (15.0.4335), database s
   control tables `sync_state`, `sync_runs`, `sync_requests`. They are created by the worker at start from versioned
   SQL files in `sync/sql/` (idempotent; the applied version is stored in `sync_state`). `api_rw` receives `USAGE` on
   schema `serving` (bootstrap) and explicit grants on the three control tables only (given by the same SQL file);
-  `agent_ro` already reads everything in `serving` through the existing default privileges.
+  `agent_ro` reads `sync_state` (needed for `data_as_of`) through the existing default privileges; `control.sql` revokes it from `sync_runs` and `sync_requests` (admin person ids and error text are not for the agent).
 - **Rationale**: (1) `sync_writer` is the only role allowed to create objects in `serving` (001 contract); migrations
   run as `app_owner`, which must stay unable to touch `serving`. (2) The freshness record has to change in the
   *same transaction* as the swap so a reader never sees new data with an old "data as of" or the reverse; that is only
@@ -161,8 +161,9 @@ no longer drift.
 
 ## R-14: Admin on-demand sync
 
-- **Decision**: `POST /v1/admin/sync/{table}/run` inserts a row into `serving.sync_requests` (one pending per table;
-  409 if one is pending or a run is active), audited as `sync_requested`. The worker polls every 5 s, takes the
+- **Decision**: `POST /v1/admin/sync/{table}/run` inserts a row into `serving.sync_requests` only when no pending request
+  for the table is newer than `SYNC_REQUEST_TTL_MINUTES` (default 15) and no run is active (otherwise 409), audited as
+  `sync_requested`. Because `api_rw` cannot update rows, the worker cancels expired pending rows and merges duplicates. The worker polls every 5 s, takes the
   request, runs it, and links the request to the run. A server command exists too: `make sync-now`
   (`docker compose exec sync python -m sync run sales_contract`), also subject to the lock, for break-glass use.
 - **Rationale**: the API never opens a connection to SQL Server or to the worker; a database row is the whole
@@ -188,3 +189,15 @@ no longer drift.
   endpoints, creating the control tables from the same SQL file with the `sync_writer` role.
 - **Residual risk (recorded, not hidden)**: the fake source cannot reproduce a real SQL Server lock wait; the
   operator validates one real run with the quickstart (steps 2 and 6).
+
+## R-18: Encrypted connection to the source
+
+- **Decision**: setting `SOURCE_ENCRYPT` = `require` (default) | `request` | `off` | `default`, passed to the driver's
+  `encryption` option. The worker logs a warning at every start when it is not `require`.
+- **Evidence**: on 2026-11-15 a connection with `encryption='require'` succeeded and ran `SELECT 1` against the real
+  source; an invalid value is rejected by the driver (so the option is honoured, not ignored). The account cannot read
+  `sys.dm_exec_connections` (no `VIEW SERVER STATE`), so the connection's encrypted state cannot be queried; the
+  guarantee is that `require` makes the connection fail if the server cannot encrypt.
+- **Rationale**: the login password and about 35k rows of business data cross the network on every run.
+- **Alternatives**: trust the network (rejected: unknown path to the source); a VPN or tunnel (possible later, not needed
+  now that the server speaks TLS).

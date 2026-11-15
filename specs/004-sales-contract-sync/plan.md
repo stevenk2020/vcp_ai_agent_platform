@@ -34,7 +34,7 @@ decision, [data-model.md](data-model.md) and [contracts/](contracts/).
 
 **Performance Goals**: copy within 15 minutes of a source change; a full run of 35k rows x 64 columns under 5 minutes including the wait for the source's commit (SC-001, SC-002); swap lock held for milliseconds
 
-**Constraints**: the source is only read (explicit column list, no `NOLOCK`, deadlock priority low); excluded columns never selected; secrets only as files; no secret in logs or error texts; readers never see an empty or partial copy; one run at a time
+**Constraints**: the connection to the source is encrypted (`SOURCE_ENCRYPT=require`); the source is only read (explicit column list, no `NOLOCK`, deadlock priority low); excluded columns never selected; secrets only as files; no secret in logs or error texts; readers never see an empty or partial copy; one run at a time
 
 **Scale/Scope**: one table, about 35,000 rows (measured 35,440), 64 columns, one run about every 10 minutes (about 144 runs a day, about 4,300 run rows kept)
 
@@ -51,7 +51,7 @@ decision, [data-model.md](data-model.md) and [contracts/](contracts/).
 | V. Verifiable Answers | Prepares it | Pass. `data_as_of` is produced atomically with the data for the later topic feature to display |
 | VI. Observability and Auditability | Yes | Pass. Every run is recorded (counts, duration, outcome, reason); manual triggers are audited; logs are JSON without secrets or row values |
 | Technology and Operational Constraints | Yes | Pass. APScheduler sync worker as named in the constitution; one new third-party driver (`pymssql`), justified in R-1; sensitive columns excluded (rule: flagged and masked or excluded); secrets only as files |
-| Development Workflow | Yes | Pass. Phase 0 verification items V-2 and V-3 are answered (constitution requires them before the worker); V-4 is not a blocker (it is a switch); every task gets an acceptance test |
+| Development Workflow | Yes | Pass. Phase 0 verification items V-2 and V-3 are answered (constitution requires them before the worker); V-4 is not a blocker (it is a switch; the gate sentence in `docs/phase0-verification.md` and its test are amended by task T005); every task gets an acceptance test |
 
 **Complexity Tracking**:
 
@@ -89,10 +89,10 @@ sync/                                  # NEW service
 ├── Dockerfile                         # python:3.12-slim; targets runtime and test
 ├── pyproject.toml                     # pymssql, apscheduler, psycopg[binary]; dev: pytest
 ├── sync/
-│   ├── __main__.py                    # CLI: run | status | drill ; no args = start the scheduler
+│   ├── __main__.py                    # CLI: run | status | health ; no args = start the scheduler
 │   ├── config.py                      # settings, secrets, validation
 │   ├── definition.py                  # parse and check sync/tables/*.toml, hash, SQL generation
-│   ├── source.py                      # Source protocol; SqlServerSource (pymssql); statement recorder
+│   ├── source.py                      # Source protocol; SqlServerSource (pymssql, encrypted); statement recorder
 │   ├── store.py                       # Postgres: control tables, staging, COPY, swap, state, runs, requests
 │   ├── runner.py                      # one run: lock, checks, read, guards, swap, record
 │   ├── guards.py                      # zero rows, fraction, minimum, shape, key, range

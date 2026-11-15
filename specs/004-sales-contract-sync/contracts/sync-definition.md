@@ -40,7 +40,9 @@ content (the dictionary cannot drift).
 | `SYNC_INTERVAL_MINUTES` | 10 | schedule per table |
 | `SYNC_POLL_SECONDS` | 5 | how often pending admin requests are picked up |
 | `SOURCE_SNAPSHOT_READ` | `off` | `on` once the DBA enabled snapshot isolation (worker refuses to start if `on` and the source says it is off) |
-| `SOURCE_READ_TIMEOUT_SECONDS` | 300 | lock wait and query limit |
+| `SOURCE_READ_TIMEOUT_SECONDS` | 300 | lock wait and query limit; values below 180 are refused (the source job takes about 2 minutes) |
+| `SOURCE_ENCRYPT` | `require` | `require`, `request`, `off`, `default`; anything but `require` logs a warning at every start |
+| `SYNC_REQUEST_TTL_MINUTES` | 15 | a pending admin request older than this no longer blocks new ones and is cancelled by the worker (also set on the `api` service) |
 | `SYNC_RETRY_ATTEMPTS`, `SYNC_RETRY_BASE_SECONDS` | 3, 15 | connection retries; waits 15 s, 45 s |
 | `GUARD_MIN_FRACTION`, `GUARD_MIN_ROWS` | 0.5, 1000 | guards (table file overrides) |
 | `SWAP_LOCK_TIMEOUT_SECONDS` | 15 | lock wait for the swap (3 tries) |
@@ -64,10 +66,10 @@ the worker idles with "source not configured". The Postgres password for `sync_w
 
 ## Service behaviour contract
 
-1. Start: load config and secrets; apply `sync/sql` (idempotent); register tables in `sync_state`; fail old
+1. Start: load config and secrets; apply `sync/sql` (idempotent); register every table found in `sync/tables/*.toml` in `sync_state`; fail old
    `running` rows (`interrupted`); verify the source account (R-11) and, if `SOURCE_SNAPSHOT_READ=on`, the
-   source's snapshot state; with no source secret, idle and report `source_not_configured`.
+   source's snapshot state; with no source secret, the scheduled runs are skipped and only the heartbeat and the request poll keep running (a request or a command then records one `source_not_configured` run).
 2. Each run: take the advisory lock or stop; insert the `running` row; check account; check shape; read the whole
    table with the explicit column list into the staging table; guards; swap; update state; release.
-3. Heartbeat: the scheduler touches a file every 30 s; the container health check fails when it is older than 90 s.
+3. Heartbeat: the scheduler touches a file at start and then every 30 s; the container health check fails when it is older than 90 s.
 4. Logs: one JSON line per run event; never a secret, never row values.

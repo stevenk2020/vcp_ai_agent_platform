@@ -79,7 +79,8 @@ An admin can trigger a sync on demand (for example right after the source owner 
 1. **Given** no sync is running, **When** an admin triggers one, **Then** a run starts at once and the trigger (who, when) is audited.
 2. **Given** a sync is running, **When** an admin triggers another or the schedule fires, **Then** no second run starts and the requester is told one is already running.
 3. **Given** a person who is not an approved admin, **When** they try to trigger a sync, **Then** it is refused and nothing runs.
-4. **Given** the platform restarts in the middle of a run, **When** it comes back, **Then** the unfinished run is recorded as failed, the copy is the previous complete state, and the next scheduled run works (no stuck lock).
+4. **Given** a request was recorded but nothing picked it up for 15 minutes (worker down), **When** an admin asks again, **Then** the old request no longer blocks and the new one is accepted.
+5. **Given** the platform restarts in the middle of a run, **When** it comes back, **Then** the unfinished run is recorded as failed, the copy is the previous complete state, and the next scheduled run works (no stuck lock).
 
 ---
 
@@ -141,14 +142,14 @@ The sync only reads from the source. At start it checks that the source account 
 - **FR-003**: Each run MUST read the whole source table in one consistent read: when the source offers consistent snapshot reading and the setting is on, using it; otherwise waiting for the source's own commit up to a configurable read limit (default 5 minutes, always longer than the source job's observed 2 minutes). It MUST NOT use uncommitted-read hints.
 - **FR-004**: The system MUST replace the copy atomically: readers see either the complete previous state or the complete new state, never an empty or partial table, including while the replacement is in progress.
 - **FR-005**: Before replacing, the system MUST apply guards and refuse to replace (keeping the previous copy) when the source returns zero rows, fewer rows than a configurable fraction (default 50%) of the current copy, fewer than a configurable absolute minimum, duplicate natural keys, or a changed column set or type; each refusal MUST be recorded with its reason and the counts.
-- **FR-006**: The system MUST keep a sync log with, for every run: start time, end time, outcome (`succeeded`, `failed`, `refused`), source row count, copied row count, duration, who or what triggered it (schedule or admin), and an error text that contains no secrets.
+- **FR-006**: The system MUST keep a sync log with, for every run: start time, end time, outcome (`succeeded`, `failed`, `refused`), source row count, copied row count, duration, who or what triggered it (schedule, admin request, or the server command), and an error text that contains no secrets.
 - **FR-007**: The system MUST keep a freshness record per synced table with the time of the last successful read ("data as of"), and expose it to later features and to admins, including an indication of staleness (default threshold 30 minutes, configurable) and of a "failing" state after a configurable number of consecutive failed or refused runs (default 3).
 - **FR-008**: The system MUST provide an admin-only way to list recent sync runs and to read freshness, and an admin-only way to trigger a sync on demand; both MUST go through the platform's existing authenticated, Origin-checked admin interface, and the trigger MUST be audited (who, when, outcome).
 - **FR-009**: On source connection errors the system MUST retry with growing waits up to a configurable number of attempts, then record the failure, keep the previous copy, and try again at the next scheduled time; it MUST recover by itself when the source returns.
 - **FR-010**: The system MUST NOT write secrets (source password, connection string, platform database passwords) to logs, to the sync log, to error texts, or to responses.
 - **FR-011**: The copy MUST hold the same columns as the source, except the excluded sensitive columns (FR-020) with faithful values: nulls stay null, empty text stays empty, text keeps its characters, dates stay dates, date-times keep their precision and carry no assumed time zone, and money and quantities are stored as exact decimal numbers; the exact number format and the rule applied to the source's floating-point money values MUST be decided in the plan and documented in the column dictionary.
 - **FR-012**: The copy MUST have `(entity, row_id)` as its unique key and indexes that support the likely filters (entity, confirmed date, finished date, customer code, goods code `code_old`, `cat_1`, `cat_2`).
-- **FR-013**: Only the sync identity MUST be able to write to the copy; the agent's read-only identity MUST only read it and MUST NOT see anything outside the copy's area; this MUST be proven by tests of both identities.
+- **FR-013**: Only the sync identity MUST be able to write to the copy; the agent's read-only identity MUST only read it and the freshness record, and MUST NOT see anything else (not the run history, not the admin requests); this MUST be proven by tests of both identities.
 - **FR-014**: At start, and before each run, the system MUST verify the source account is not an administrator or database owner and MUST refuse to run if it is; the worker MUST only send reads to the source.
 - **FR-015**: The table list, schedule, guards, read limit, retry counts and the snapshot-reading switch MUST be configuration, not code constants; adding another source table later MUST need configuration plus a copy definition, not a rewrite of the worker (only `sales_contract` is in scope now).
 - **FR-016**: The structure of the copy and of the sync control records MUST be created by versioned, idempotent definitions applied automatically (by the sync identity, which is the only one allowed to create objects in the copy's area; plan R-4) and covered by the foundation tests; the existing backup and restore MUST keep working and include the copy and the sync log.
@@ -156,6 +157,7 @@ The sync only reads from the source. At start it checks that the source account 
 - **FR-018**: Every behavior above MUST be verifiable with a fake source: the automated tests MUST NOT need a real SQL Server.
 - **FR-019**: The feature MUST ship operator documentation: how to check freshness, how to force a sync, what to do when the source is down, when a guard refuses, when the source shape changes, and how to turn on snapshot reading after the DBA enables it.
 - **FR-020**: The system MUST treat sensitive columns according to the constitution: they are flagged in the column dictionary and masked or excluded from the copy. Decision (operator, 2026-11-15, option A): the salesperson columns `employee_code_bdd` and `employee_name_bdd` are **excluded** from the copy (staff personal data, and the name is missing in 54% of rows); the customer address columns `customer_address` and `address` are **kept** and flagged as business addresses. The excluded columns are never read from the source, never stored, and never logged; the column dictionary lists them as excluded with the reason. Adding them back later needs a deliberate decision, a constitution-compliant masking plan, and a new migration.
+- **FR-021**: The connection to the source MUST be encrypted: the worker MUST refuse to connect unencrypted unless the operator explicitly switches encryption off, in which case every start logs a warning; the source password and the data MUST NOT cross the network unprotected. (Measured 2026-11-15: the source accepts an encrypted connection.)
 
 ### Key Entities *(include if feature involves data)*
 
@@ -170,7 +172,7 @@ The sync only reads from the source. At start it checks that the source account 
 ### Measurable Outcomes
 
 - **SC-001**: After a change in the source, the copy reflects it within 15 minutes (one source cycle plus one sync run) in normal operation.
-- **SC-002**: A full sync of the current source size (about 35,000 rows, 66 columns) completes within 5 minutes when the source is not blocked.
+- **SC-002**: A full sync of the current source size (about 35,000 rows) completes within 5 minutes, including up to about 2 minutes of waiting for the source's own commit when it is in progress (about 1 minute of the total is the copy itself).
 - **SC-003**: During 1,000 consecutive reads of the copy taken while it is being replaced, zero reads see an empty table or a row count that differs from both the previous and the new complete state.
 - **SC-004**: In every tested bad-source case (zero rows, below the fraction, below the minimum, duplicate keys, changed columns, unreachable, timeout, login refused), the previous copy is 100% unchanged and the run is recorded with a readable reason.
 - **SC-005**: An admin can find out when the data was last refreshed and whether the latest run succeeded in at most 2 clicks or one request, and the answer is correct to the minute.
@@ -181,6 +183,7 @@ The sync only reads from the source. At start it checks that the source account 
 ## Assumptions
 
 - Only `dbo.sales_contract` is synced now; the source rebuilds it about every 10 minutes (about 2 minutes, one commit) and has about 35,000 rows and 66 nullable columns, with `(entity, row_id)` unique (V-2, V-3 answered; verified on 2026-11-15).
+- The source accepts encrypted connections (checked on 2026-11-15 with the read-only account), so encryption is required by default.
 - The source's consistent snapshot reading is OFF (V-4 pending with the DBA). Until it is ON, a read can wait up to about 2 minutes for the source's commit; the platform tolerates this with a read limit of 5 minutes. A scheduled run that is still waiting does not overlap with the next one.
 - "Data as of" means the time the consistent read of the source started (platform clock), not a value from the source.
 - Full replace is enough at this size; incremental or change-capture sync is out of scope.

@@ -9,7 +9,7 @@
 ## Automated checks (no real SQL Server)
 
 ```bash
-make test-sync       # worker: copy, swap, guards, retries, secrets, read-only, definitions
+make test-sync       # worker: copy, swap, guards, retries, secrets, read-only, encryption setting, definitions
 make test-api        # includes the admin sync endpoints and the deny-by-default walk
 make test            # foundation: grants, swap with a concurrent reader, backup includes the copy
 make scan-secrets
@@ -31,8 +31,9 @@ All green, and the counts of each suite are reported.
    confirm: a new run appears within about 10 seconds and finishes; pressing again while it runs shows the busy message.
 6. While a run is waiting on the source, query the copy from another session: it answers immediately with the old
    complete table (never empty).
-7. Guard drill (safe): `docker compose exec sync python -m sync drill zero-rows` runs the guard path against a
-   throwaway fake source inside the container; the real copy is unchanged and `make sync-status` shows no new failure.
+7. Guards cannot be triggered safely on the real source, so they are proven by the automated tests: confirm
+   `make test-sync ARGS="-k guards"` passes. Also confirm the connection is encrypted by configuration: the log at start
+   says `source encryption: require` and no warning about `SOURCE_ENCRYPT`.
 8. Source-down drill: stop the network to the source for two ticks (or temporarily rename the secret host to a bad
    value, restart `sync`): runs `failed` with `source_unreachable`, state `failing` after 3, the copy still
    answers, `data_as_of` ages to `stale`; restore and the state returns to `healthy` by itself.

@@ -8,7 +8,7 @@ All objects are in schema `serving`, owned by `sync_writer`, created by the work
 | Role | `serving.sales_contract` | `sync_state`, `sync_runs` | `sync_requests` |
 | --- | --- | --- | --- |
 | `sync_writer` | owner: create, replace, rename, drop, write | owner: write | owner: read, update |
-| `agent_ro` | `SELECT` (existing default privileges) | `SELECT` (existing default privileges) | `SELECT` (same) |
+| `agent_ro` | `SELECT` (existing default privileges) | `sync_state`: `SELECT` (existing default privileges); `sync_runs`: **none** (revoked by `control.sql`) | **none** (revoked by `control.sql`) |
 | `api_rw` | **nothing** | `SELECT` (new, explicit) | `SELECT`, `INSERT` (new, explicit) |
 | `app_owner`, `backup_ro` | unchanged (`backup_ro` reads all through `pg_read_all_data`) | unchanged | unchanged |
 
@@ -62,7 +62,7 @@ else `stale` (now minus `data_as_of` over `stale_after_seconds`), else `healthy`
 | --- | --- | --- |
 | `id` | bigint identity, primary key | |
 | `table_name` | text | |
-| `trigger` | text | `schedule`, `admin`, `startup`, `command` |
+| `trigger` | text | `schedule`, `admin`, `command` |
 | `requested_by` | uuid null | the admin's person id for `admin` triggers (no name, no email) |
 | `started_at`, `finished_at` | timestamptz, null for `finished_at` while running | |
 | `outcome` | text | `running` then `succeeded`, `failed`, `refused` |
@@ -85,8 +85,10 @@ Retention: rows older than `SYNC_LOG_RETENTION_DAYS` (30) are removed after each
 | `state` | text | `pending` then `taken`; `cancelled` if the table is unknown at pickup |
 | `run_id` | bigint null | set when taken |
 
-At most one `pending` row per table (partial unique index). The API refuses a new request (409) while a pending row
-exists or the latest run is `running`.
+No unique index: the API inserts a request only when no `pending` request for the table is newer than
+`SYNC_REQUEST_TTL_MINUTES` (15) and the latest run is not `running`, otherwise `409`. `api_rw` has no `UPDATE`, so the
+worker does the clean-up: when it takes a request it marks every other `pending` row of that table `cancelled`
+(a rare double click), and each poll cancels `pending` rows older than the TTL (nobody picked them up).
 
 ## State transitions of a run
 
