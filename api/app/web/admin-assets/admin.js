@@ -202,11 +202,69 @@ async function renderPeople() {
   panel.appendChild(table(["Email", "Name", "Status", "Role", "Last sign-in", "Actions"], rows));
 }
 
+// ---- Audit log -----------------------------------------------------------------------------------------------
+const AUDIT_PAGE = 50;
+
+async function renderAudit() {
+  const probe = await api("GET", "/v1/admin/audit?limit=1");
+  if (probe.status !== 200) return fail(probe);
+  clear(panel);
+  panel.appendChild(el("h2", {}, "Audit log"));
+
+  const action = el("select", { id: "audit-action", "aria-label": "Action" }, el("option", { value: "" }, "All actions"),
+    probe.data.actions.map((name) => el("option", { value: name }, name)));
+  const person = el("input", { id: "audit-person", type: "text", maxlength: "254", autocomplete: "off",
+    placeholder: "email starts with…", "aria-label": "Person (email)" });
+  const apply = el("button", { type: "submit" }, "Apply");
+  const form = el("form", { class: "row" }, action, person, apply);
+  const body = el("tbody", {});
+  const older = el("button", { type: "button", class: "secondary", hidden: true }, "Older events");
+  const note = el("p", { class: "muted", hidden: true });
+  let lastId = null;
+
+  const load = async (append) => {
+    const query = [`limit=${AUDIT_PAGE}`];
+    if (action.value) query.push(`action=${encodeURIComponent(action.value)}`);
+    if (person.value.trim()) query.push(`person=${encodeURIComponent(person.value.trim())}`);
+    if (append && lastId) query.push(`before=${lastId}`);
+    const response = await api("GET", `/v1/admin/audit?${query.join("&")}`);
+    if (response.status !== 200) return fail(response);
+    say("", "");
+    if (!append) clear(body);
+    for (const event of response.data.items) {
+      body.appendChild(el("tr", {},
+        cell("Time", fmtTime(event.at)),
+        cell("Actor", event.actor_email || "(none)"),
+        cell("Action", event.action),
+        cell("Target", event.target || ""),
+        cell("Outcome", event.outcome),
+        cell("IP", event.ip || ""),
+        cell("Details", JSON.stringify(event.detail || {}))));
+    }
+    if (response.data.items.length) lastId = response.data.items[response.data.items.length - 1].id;
+    const more = response.data.items.length === AUDIT_PAGE;
+    older.hidden = !more;
+    note.textContent = body.children.length === 0 ? "Nothing matched." : more ? "" : "No more events.";
+    note.hidden = !note.textContent;
+  };
+
+  form.addEventListener("submit", (event) => { event.preventDefault(); lastId = null; load(false); });
+  older.addEventListener("click", () => load(true));
+  panel.appendChild(form);
+  panel.appendChild(el("div", { class: "table-wrap" }, el("table", { class: "table" },
+    el("thead", {}, el("tr", {}, ["Time", "Actor", "Action", "Target", "Outcome", "IP", "Details"].map((h) => el("th", { scope: "col" }, h)))),
+    body)));
+  panel.appendChild(note);
+  panel.appendChild(older);
+  await load(false);
+}
+
 // ---- tabs ----------------------------------------------------------------------------------------------------
 const TABS = {
   queue: renderQueue,
   allowlist: renderAllowlist,
   people: renderPeople,
+  audit: renderAudit,
 };
 
 function currentTab() {

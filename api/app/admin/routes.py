@@ -82,6 +82,12 @@ async def read_audit(
     limit: int = Query(100, ge=1, le=500),
     action: str | None = None,
     before: int | None = Query(None, ge=1),
+    person: str | None = Query(None, max_length=254),
     _: CurrentUser = Depends(admin_only),
 ):
-    return {"items": await service.read_audit(request.app.state, limit, action, before)}
+    from app import audit
+
+    return {
+        "items": await service.read_audit(request.app.state, limit, action, before, person),
+        "actions": sorted(audit.ACTIONS),
+    }

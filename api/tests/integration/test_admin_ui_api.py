@@ -144,3 +144,67 @@ async def test_removing_an_entry_ends_that_persons_session_on_the_next_request(l
     assert (await person.get("/v1/me")).status_code == 200
     assert (await admin.delete(f"/v1/admin/allowlist/{entry['id']}")).status_code == 204
     assert (await person.get("/v1/me")).status_code == 401
+
+
+# ---- audit reading (US5) -----------------------------------------------------------------------------
+
+def seed_event(sql, actor, target, action="signed_out", n=0):
+    sql.execute(
+        "INSERT INTO app.audit_events (at, actor_email, action, target, outcome, ip, detail) "
+        "VALUES (now() + make_interval(secs => %s), %s, %s, %s, 'success', '10.0.0.1', '{}'::jsonb)",
+        (n, actor, action, target),
+    )
+
+
+async def test_the_audit_response_lists_all_action_names(login):
+    from app import audit
+
+    admin = await login(ADMIN, role="admin")
+    body = (await admin.get("/v1/admin/audit")).json()
+    assert set(body) == {"items", "actions"} and body["actions"] == sorted(audit.ACTIONS)
+
+
+async def test_the_person_filter_matches_actor_or_target_by_prefix_ignoring_case(login, sql):
+    seed_event(sql, "Alice@Example.com", "x@example.com", n=1)
+    seed_event(sql, "bob@example.com", "alice2@example.org", n=2)
+    seed_event(sql, "carol@example.com", "dave@example.com", n=3)
+    admin = await login(ADMIN, role="admin")
+    items = (await admin.get("/v1/admin/audit?person=ALICE&limit=500")).json()["items"]
+    hits = [i for i in items if i["actor_email"] != ADMIN]
+    assert {(i["actor_email"], i["target"]) for i in hits} == {("Alice@Example.com", "x@example.com"),
+                                                                 ("bob@example.com", "alice2@example.org")}
+    assert (await admin.get("/v1/admin/audit?person=zzz")).json()["items"] == []
+
+
+async def test_like_wildcards_in_the_person_filter_are_literal(login, sql):
+    seed_event(sql, "a_b@example.com", "t1", n=1)
+    seed_event(sql, "axb@example.com", "t2", n=2)
+    seed_event(sql, "a%b@example.com", "t3", n=3)
+    admin = await login(ADMIN, role="admin")
+    for query, expected in (("a_b", {"t1"}), ("a%25b", {"t3"}), ("a%25", {"t3"}), ("a\\", set())):
+        items = (await admin.get(f"/v1/admin/audit?person={query}&limit=500")).json()["items"]
+        assert {i["target"] for i in items if i["target"] and i["target"].startswith("t")} == expected, query
+
+
+async def test_person_over_254_characters_is_refused(login):
+    admin = await login(ADMIN, role="admin")
+    assert (await admin.get("/v1/admin/audit?person=" + "a" * 255)).status_code == 422
+    assert (await admin.get("/v1/admin/audit?person=" + "a" * 254)).status_code == 200
+
+
+async def test_person_action_and_before_page_without_repeats_or_gaps(login, sql):
+    for n in range(12):
+        seed_event(sql, "pager@example.com", f"t{n}", action="code_requested" if n % 2 == 0 else "signed_out", n=n)
+    admin = await login(ADMIN, role="admin")
+    seen, before = [], None
+    for size in (5, 5, 5):
+        query = f"/v1/admin/audit?person=pager&limit={size}" + (f"&before={before}" if before else "")
+        page = (await admin.get(query)).json()["items"]
+        seen.extend(i["target"] for i in page)
+        if not page:
+            break
+        before = page[-1]["id"]
+    assert seen == [f"t{n}" for n in range(11, -1, -1)]  # newest first, 5 + 5 + 2, nothing repeated or skipped
+    only_requested = (await admin.get("/v1/admin/audit?person=pager&action=code_requested&limit=100")).json()["items"]
+    assert [i["target"] for i in only_requested] == [f"t{n}" for n in (10, 8, 6, 4, 2, 0)]
+    assert (await admin.get("/v1/admin/audit?person=pager&action=made_up")).status_code == 422

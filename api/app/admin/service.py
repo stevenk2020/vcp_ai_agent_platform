@@ -241,7 +241,8 @@ async def set_role(state, actor, user_id, role: str, ip, expect_status: str | No
 
 # ---- audit trail (read only) -------------------------------------------------------------------
 
-async def read_audit(state, limit: int, action: str | None, before: int | None) -> list[dict]:
+async def read_audit(state, limit: int, action: str | None, before: int | None,
+                     person: str | None = None) -> list[dict]:
     if action is not None and action not in audit.ACTIONS:
         raise _invalid("Unknown action.")
     clauses, params = [], []
@@ -251,6 +252,11 @@ async def read_audit(state, limit: int, action: str | None, before: int | None) 
     if before:
         clauses.append("id < %s")
         params.append(before)
+    if person and person.strip():
+        # case-insensitive prefix match on who did it or who it was about; LIKE wildcards in the input are literal
+        escaped = person.strip().lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        clauses.append("(lower(actor_email) LIKE %s ESCAPE '\\' OR lower(target) LIKE %s ESCAPE '\\')")
+        params.extend([escaped, escaped])
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     async with state.db.pool.connection() as conn:
         cursor = await conn.execute(
