@@ -193,3 +193,15 @@ The sync only reads from the source. At start it checks that the source account 
 - Mail stays disabled; there is no alert by email. A failing state is visible in the admin area and in the logs.
 - The copy therefore has 62 of the source's 64 columns; questions about salespeople cannot be answered from it (the knowledge base must say so when the topic feature is built).
 - Out of scope: the Topic MCP server and query tool, serving the knowledge base, the chat UI, the agent loop, the LLM gateway, other source tables, writing back to the source.
+
+## Validation results (2026-11-15, after implementation T001-T038)
+
+| Check | Result |
+| --- | --- |
+| `make test-sync` (worker, fake source, isolated project) | 169 passed |
+| `make test-api` (isolated project) | 314 passed (was 275 before this feature) |
+| `make test` (foundation, `-m 'not slow'`, against the live stack) | 142 passed, 1 slow deselected |
+| `make scan-secrets` | clean (12 secret values checked against tracked files and history) |
+| Live database before and after the test runs | unchanged (3 users, 0 allowlist entries, 7 sessions, 38 audit events; `serving` holds the copy table and the three control tables only) |
+| Corrections found while implementing | the source has **64** columns, not 66 as first written, so the copy has **62** (docs fixed); the 002 test `test_api_rw_cannot_reach_serving_or_kb` needed a real probe table because `api_rw` now has `USAGE` on `serving` |
+| Not yet verified | the real run against SQL Server (tasks T039 to T041 are the operator's): lock wait during the source job, the real duration, the encrypted connection in production, the Data tab in a browser |
