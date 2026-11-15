@@ -1,1 +1,156 @@
-[]
+[
+  {
+    "name": "no success ever",
+    "row": {
+      "data_as_of": null,
+      "consecutive_failures": 0,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "no_data",
+      "age_seconds": null
+    }
+  },
+  {
+    "name": "no success and failing runs: no_data wins",
+    "row": {
+      "data_as_of": null,
+      "consecutive_failures": 5,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "no_data",
+      "age_seconds": null
+    }
+  },
+  {
+    "name": "success 5 minutes ago",
+    "row": {
+      "data_as_of": "2026-11-15T09:55:00+00:00",
+      "consecutive_failures": 0,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "healthy",
+      "age_seconds": 300
+    }
+  },
+  {
+    "name": "exactly at the stale limit is still healthy",
+    "row": {
+      "data_as_of": "2026-11-15T09:30:00+00:00",
+      "consecutive_failures": 0,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "healthy",
+      "age_seconds": 1800
+    }
+  },
+  {
+    "name": "success 31 minutes ago",
+    "row": {
+      "data_as_of": "2026-11-15T09:29:00+00:00",
+      "consecutive_failures": 0,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "stale",
+      "age_seconds": 1860
+    }
+  },
+  {
+    "name": "two failures are not failing yet",
+    "row": {
+      "data_as_of": "2026-11-15T09:55:00+00:00",
+      "consecutive_failures": 2,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "healthy",
+      "age_seconds": 300
+    }
+  },
+  {
+    "name": "three failures with a recent success",
+    "row": {
+      "data_as_of": "2026-11-15T09:55:00+00:00",
+      "consecutive_failures": 3,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "failing",
+      "age_seconds": 300
+    }
+  },
+  {
+    "name": "failing takes precedence over stale",
+    "row": {
+      "data_as_of": "2026-11-15T08:00:00+00:00",
+      "consecutive_failures": 4,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "failing",
+      "age_seconds": 7200
+    }
+  },
+  {
+    "name": "stored thresholds are used",
+    "row": {
+      "data_as_of": "2026-11-15T09:50:00+00:00",
+      "consecutive_failures": 0,
+      "stale_after_seconds": 300,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "stale",
+      "age_seconds": 600
+    }
+  },
+  {
+    "name": "stored failing_after is used",
+    "row": {
+      "data_as_of": "2026-11-15T09:55:00+00:00",
+      "consecutive_failures": 1,
+      "stale_after_seconds": 1800,
+      "failing_after": 1
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "failing",
+      "age_seconds": 300
+    }
+  },
+  {
+    "name": "clock slightly behind the data: age never negative",
+    "row": {
+      "data_as_of": "2026-11-15T10:00:05+00:00",
+      "consecutive_failures": 0,
+      "stale_after_seconds": 1800,
+      "failing_after": 3
+    },
+    "now": "2026-11-15T10:00:00+00:00",
+    "expect": {
+      "state": "healthy",
+      "age_seconds": 0
+    }
+  }
+]

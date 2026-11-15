@@ -8,9 +8,7 @@ copy = "sales_contract"
 key = ["entity", "row_id"]
 version = 1
 
-[guards]
-min_fraction = 0.5
-min_rows = 1000
+# [guards] is optional: min_fraction and min_rows here would override the global GUARD_* settings for this table
 
 [[columns]]
 name = "entity"
