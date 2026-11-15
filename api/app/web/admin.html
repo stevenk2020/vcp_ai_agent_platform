@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · AI Agent Platform</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/style.css">
+<script type="module" src="/admin/assets/admin.js"></script>
+</head>
+<body>
+<header class="bar">
+<strong>Admin</strong>
+<a href="/">Back to the start</a>
+</header>
+<main>
+<nav class="tabs" aria-label="Admin sections">
+<a href="#queue" data-tab="queue">Waiting</a>
+<a href="#allowlist" data-tab="allowlist">Allowlist</a>
+<a href="#people" data-tab="people">People</a>
+<a href="#audit" data-tab="audit">Audit log</a>
+</nav>
+<p id="status" role="status" hidden></p>
+<section id="panel" class="card" aria-live="polite"></section>
+</main>
+
+<dialog id="confirm" aria-labelledby="confirm-title">
+<form id="confirm-form">
+<h2 id="confirm-title"></h2>
+<p id="confirm-message"></p>
+<label class="field" id="confirm-role-field" hidden><span>Role</span><select id="confirm-role"></select></label>
+<div class="row">
+<button type="submit" id="confirm-ok">Confirm</button>
+<button type="button" class="secondary" id="confirm-cancel">Cancel</button>
+</div>
+</form>
+</dialog>
+</body>
+</html>

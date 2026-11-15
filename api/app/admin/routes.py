@@ -14,6 +14,9 @@ from app.auth.deps import CurrentUser, client_ip, require_role
 router = APIRouter(prefix="/v1/admin")
 admin_only = require_role("admin")
 Role = Literal["admin", "builder", "user"]
+Status = Literal["pending", "active", "suspended", "rejected"]
+# optional guard sent by the pages: the status the admin saw; a different current status gives 409 already_handled
+ExpectStatus = Query(None)
 
 
 class EntryCreate(BaseModel):
@@ -50,23 +53,27 @@ async def list_users(request: Request, status: str | None = None, _: CurrentUser
 
 
 @router.post("/users/{user_id}/approve")
-async def approve(user_id: UUID, body: RoleBody, request: Request, actor: CurrentUser = Depends(admin_only)):
-    return await service.approve(request.app.state, actor, user_id, body.role, client_ip(request))
+async def approve(user_id: UUID, body: RoleBody, request: Request, expect_status: Status | None = ExpectStatus,
+                  actor: CurrentUser = Depends(admin_only)):
+    return await service.approve(request.app.state, actor, user_id, body.role, client_ip(request), expect_status)
 
 
 @router.post("/users/{user_id}/reject")
-async def reject(user_id: UUID, request: Request, actor: CurrentUser = Depends(admin_only)):
-    return await service.reject(request.app.state, actor, user_id, client_ip(request))
+async def reject(user_id: UUID, request: Request, expect_status: Status | None = ExpectStatus,
+                 actor: CurrentUser = Depends(admin_only)):
+    return await service.reject(request.app.state, actor, user_id, client_ip(request), expect_status)
 
 
 @router.post("/users/{user_id}/suspend")
-async def suspend(user_id: UUID, request: Request, actor: CurrentUser = Depends(admin_only)):
-    return await service.suspend(request.app.state, actor, user_id, client_ip(request))
+async def suspend(user_id: UUID, request: Request, expect_status: Status | None = ExpectStatus,
+                  actor: CurrentUser = Depends(admin_only)):
+    return await service.suspend(request.app.state, actor, user_id, client_ip(request), expect_status)
 
 
 @router.post("/users/{user_id}/role")
-async def change_role(user_id: UUID, body: RoleBody, request: Request, actor: CurrentUser = Depends(admin_only)):
-    return await service.set_role(request.app.state, actor, user_id, body.role, client_ip(request))
+async def change_role(user_id: UUID, body: RoleBody, request: Request, expect_status: Status | None = ExpectStatus,
+                      actor: CurrentUser = Depends(admin_only)):
+    return await service.set_role(request.app.state, actor, user_id, body.role, client_ip(request), expect_status)
 
 
 @router.get("/audit")

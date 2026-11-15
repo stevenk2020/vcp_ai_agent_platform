@@ -23,7 +23,7 @@ PUBLIC = {
     ("GET", "/"), ("GET", "/static/{name:path}"),
 }
 # routes that must exist (they are part of the contract); a missing one is a failure, not a skip
-MUST_EXIST = WAITING_ALLOWED | PUBLIC
+MUST_EXIST = WAITING_ALLOWED | PUBLIC | ADMIN_PAGES
 # page routes for admins: refusal is 302 (signed out) or 403 (not an admin), never 200
 ADMIN_PAGES = {("GET", "/admin"), ("GET", "/admin/assets/{name}")}
 
@@ -85,16 +85,9 @@ async def test_a_waiting_session_opens_nothing_but_its_own_routes(app, login_pen
     assert exercised == registered
     # the allow-list never names a route that does not exist, and the contract routes are all present
     for key in WAITING_ALLOWED | PUBLIC | ADMIN_PAGES:
-        if key in registered:
-            continue
-        assert key in PENDING_LATER, f"allow-list names a route that is not registered: {key}; registered={sorted(registered)}"
+        assert key in registered, f"allow-list names a route that is not registered: {key}"
     for key in MUST_EXIST:
         assert key in registered, f"contract route missing: {key}"
-
-
-# routes that arrive in later phases of this feature; once registered the test checks them like any other.
-# The access routes and the start page are mandatory since US1/US2; T024 (US3) adds the admin pages.
-PENDING_LATER = {("GET", "/admin"), ("GET", "/admin/assets/{name}")}
 
 
 async def test_the_waiting_session_still_works_for_logout_and_is_revoked_like_any_session(login_pending, sql):

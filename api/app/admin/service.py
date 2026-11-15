@@ -11,7 +11,7 @@ import psycopg.errors
 
 from app import audit
 from app.auth.deps import CurrentUser
-from app.errors import ApiError, conflict, last_admin, not_found
+from app.errors import ApiError, already_handled, conflict, last_admin, not_found
 from app.security import InvalidEmail, normalize_email
 
 ROLES = ("admin", "builder", "user")
@@ -166,7 +166,8 @@ async def list_users(state, status: str | None) -> list[dict]:
 
 
 async def _change_user(state, actor: CurrentUser, user_id: UUID, ip: str | None, *, new_status: str | None,
-                       new_role: str | None, reason: str | None, audit_action: str, revoke_reason: str | None) -> dict:
+                       new_role: str | None, reason: str | None, audit_action: str, revoke_reason: str | None,
+                       expect_status: str | None = None) -> dict:
     """Shared path for approve, reject, suspend and role change, with last-admin protection."""
     clock = state.clock
     blocked = False
@@ -180,6 +181,9 @@ async def _change_user(state, actor: CurrentUser, user_id: UUID, ip: str | None,
         user = await cursor.fetchone()
         if user is None:
             raise not_found("User not found.")
+        if expect_status is not None and user["status"] != expect_status:
+            # someone else got here first (the page states the status it showed); nothing changes, nothing audited
+            raise already_handled()
         status = new_status or user["status"]
         role = new_role or user["role"]
 
@@ -211,24 +215,24 @@ async def _change_user(state, actor: CurrentUser, user_id: UUID, ip: str | None,
     return _user(updated)
 
 
-async def approve(state, actor, user_id, role: str, ip):
+async def approve(state, actor, user_id, role: str, ip, expect_status: str | None = None):
     return await _change_user(state, actor, user_id, ip, new_status="active", new_role=role, reason=None,
-                              audit_action="user_approved", revoke_reason=None)
+                              audit_action="user_approved", revoke_reason=None, expect_status=expect_status)
 
 
-async def reject(state, actor, user_id, ip):
+async def reject(state, actor, user_id, ip, expect_status: str | None = None):
     return await _change_user(state, actor, user_id, ip, new_status="rejected", new_role=None, reason=None,
-                              audit_action="user_rejected", revoke_reason="rejected")
+                              audit_action="user_rejected", revoke_reason="rejected", expect_status=expect_status)
 
 
-async def suspend(state, actor, user_id, ip):
+async def suspend(state, actor, user_id, ip, expect_status: str | None = None):
     return await _change_user(state, actor, user_id, ip, new_status="suspended", new_role=None, reason="admin",
-                              audit_action="user_suspended", revoke_reason="suspended")
+                              audit_action="user_suspended", revoke_reason="suspended", expect_status=expect_status)
 
 
-async def set_role(state, actor, user_id, role: str, ip):
+async def set_role(state, actor, user_id, role: str, ip, expect_status: str | None = None):
     return await _change_user(state, actor, user_id, ip, new_status=None, new_role=role, reason=None,
-                              audit_action="role_changed", revoke_reason=None)
+                              audit_action="role_changed", revoke_reason=None, expect_status=expect_status)
 
 
 # ---- audit trail (read only) -------------------------------------------------------------------
