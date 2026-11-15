@@ -61,4 +61,4 @@ test:
 	@cd tests && uv run pytest $(ARGS)
 
 scan-secrets:
-	@echo "not implemented yet (T027)"; exit 1
+	@bash scripts/scan-secrets.sh
