@@ -52,6 +52,8 @@ Expected: every service healthy and the `curl` returns HTTP 200 over a valid cer
 | Browser works but `/healthz` 404 | the Caddyfile did not load; `docker compose logs caddy` |
 | Rate limited by the CA | wait; Caddy retries and keeps the staging/production state in the `caddy_data` volume (do not delete it) |
 
+Caddy sends `/v1/*` **and every other path** (the web pages, `/admin`, the 404 page) to the `api` container; only `/healthz` is answered by Caddy itself. After changing `caddy/Caddyfile`, recreate Caddy so the bind-mounted file is re-read: `docker compose -f compose.yaml -f compose.backup.yaml --profile prod up -d --force-recreate --no-deps caddy`.
+
 Caddy keeps its certificates in the `caddy_data` volume; losing it only means re-issuing them.
 
 ## 5. After a reboot

@@ -68,35 +68,58 @@ async def test_response_times_do_not_reveal_who_is_allowed(settings, clock, sql)
     assert abs(a - u) / max(a, u) < 0.20, (a, u)
 
 
-async def test_an_unknown_person_who_proves_the_email_becomes_pending_without_a_session(new_client, mailer, sql, login):
+async def test_an_unknown_person_who_proves_the_email_becomes_pending_with_only_a_waiting_session(new_client, mailer, sql, login):
     c, response = await full_sign_in(new_client, mailer, STRANGER)
     assert response.status_code == 200 and response.json() == {"status": "pending"}
-    assert "set-cookie" not in response.headers
-    user = sql.execute("SELECT status, role FROM app.users WHERE email = %s", (STRANGER,)).fetchone()
+    user = sql.execute("SELECT id, status, role FROM app.users WHERE email = %s", (STRANGER,)).fetchone()
     assert (user["status"], user["role"]) == ("pending", "user")
-    assert sql.execute("SELECT count(*) AS n FROM app.sessions").fetchone()["n"] == 0
+    # a waiting session exists for exactly this person ...
+    sessions = sql.execute("SELECT user_id FROM app.sessions").fetchall()
+    assert [s["user_id"] for s in sessions] == [user["id"]]
+    # ... and its cookie is as hardened as any session cookie (FR-017)
+    cookie = response.headers["set-cookie"].lower()
+    assert cookie.startswith("__host-session=")
+    for flag in ("httponly", "secure", "samesite=lax", "path=/"):
+        assert flag in cookie, flag
+    # ... but it opens nothing protected
     assert (await c.get("/v1/me")).status_code == 401
+    assert (await c.get("/v1/admin/users")).status_code == 401
+    assert (await c.get("/v1/admin/audit")).status_code == 401
 
     admin = await login("admin@example.com", role="admin")
     queue = (await admin.get("/v1/admin/users?status=pending")).json()["items"]
     assert [u["email"] for u in queue] == [STRANGER]
     actions = [r["action"] for r in sql.execute("SELECT action FROM app.audit_events ORDER BY id").fetchall()]
-    assert "signin_pending" in actions
+    assert "signin_pending" in actions and "session_created" in actions
 
 
 async def test_signing_in_again_while_pending_adds_no_second_entry(new_client, mailer, sql):
     for _ in range(2):
         c, response = await full_sign_in(new_client, mailer, STRANGER)
-        assert response.json()["status"] == "pending" and "set-cookie" not in response.headers
+        assert response.json()["status"] == "pending" and "__Host-session" in c.cookies
+        assert (await c.get("/v1/me")).status_code == 401
     assert sql.execute("SELECT count(*) AS n FROM app.users WHERE email = %s", (STRANGER,)).fetchone()["n"] == 1
+
+
+async def test_waiting_session_growth_is_bounded_by_the_code_and_verify_caps(new_client, mailer, sql):
+    """One pending address can only obtain 5 codes per hour (and each verify counts against the per-address cap of 30
+    per 10 minutes), so waiting sessions cannot be minted without bound (research R-3)."""
+    for _ in range(5):
+        c, response = await full_sign_in(new_client, mailer, STRANGER)
+        assert response.json() == {"status": "pending"}
+    assert (await request_code(new_client(), STRANGER)).status_code == 429
+    assert sql.execute("SELECT count(*) AS n FROM app.sessions").fetchone()["n"] == 5
 
 
 async def test_adding_a_matching_entry_lets_a_pending_person_in_at_the_next_sign_in(new_client, mailer, sql):
     await full_sign_in(new_client, mailer, STRANGER)
     add_allowlist(sql, STRANGER, role="builder")
+    waiting_client, _ = await full_sign_in(new_client, mailer, STRANGER)
     c, response = await full_sign_in(new_client, mailer, STRANGER)
     assert response.json() == {"status": "signed_in", "role": "builder"}
     assert (await c.get("/v1/me")).json()["role"] == "builder"
+    # the earlier waiting session starts working as soon as the person is active (status is re-read every request)
+    assert (await waiting_client.get("/v1/me")).status_code == 200
     assert sql.execute("SELECT count(*) AS n FROM app.users WHERE email = %s", (STRANGER,)).fetchone()["n"] == 1
 
 

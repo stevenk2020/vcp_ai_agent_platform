@@ -1,4 +1,5 @@
-# HTTPS entry point (placeholder until the API exists).
+# HTTPS entry point. Everything is proxied to the api container: /v1/* is the JSON API, every other path is a
+# page (sign-in, access request, admin area) or the 404 page, served and gated by the API itself.
 {
 	# no global options needed; certificates are issued automatically for the site below
 }
@@ -12,7 +13,7 @@
 		respond 200
 	}
 	handle {
-		respond "AI Agent Platform is up." 200
+		reverse_proxy api:8000
 	}
 }
 

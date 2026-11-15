@@ -56,11 +56,17 @@ async def test_a_verified_allowlisted_email_gets_a_session(client, identity, sql
     assert identity.seen and identity.seen[0]["verifier_len"] >= 43
 
 
-async def test_a_verified_unknown_email_becomes_pending_without_a_session(client, identity, sql):
+async def test_a_verified_unknown_email_becomes_pending_with_a_waiting_session(client, identity, sql):
     response = await google_flow(client, identity, "newcomer@example.org")
     assert response.headers["location"] == "/?signin=pending"
-    assert "__Host-session" not in client.cookies and (await client.get("/v1/me")).status_code == 401
-    assert sql.execute("SELECT status FROM app.users WHERE email = 'newcomer@example.org'").fetchone()["status"] == "pending"
+    cookie = response.headers["set-cookie"].lower()
+    assert "__host-session=" in cookie and "httponly" in cookie and "secure" in cookie
+    assert "__Host-session" in client.cookies          # a waiting session exists ...
+    assert (await client.get("/v1/me")).status_code == 401  # ... but it opens nothing protected
+    assert (await client.get("/v1/admin/users")).status_code == 401
+    row = sql.execute("SELECT id, status FROM app.users WHERE email = 'newcomer@example.org'").fetchone()
+    assert row["status"] == "pending"
+    assert sql.execute("SELECT count(*) AS n FROM app.sessions WHERE user_id = %s", (row["id"],)).fetchone()["n"] == 1
 
 
 async def test_a_suspended_person_is_refused(client, identity, sql):

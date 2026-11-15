@@ -114,6 +114,23 @@ def login(new_client, mailer, sql):
 
 
 @pytest.fixture
+def login_pending(new_client, mailer):
+    """Sign in a person who is NOT on the allowlist through the real code flow: they end pending and hold a
+    waiting session. Returns the client with that cookie."""
+    from tests.integration.helpers import read_code
+
+    async def do(email: str):
+        c = new_client()
+        assert (await c.post("/v1/auth/code/request", json={"email": email})).status_code == 202
+        response = await c.post("/v1/auth/code/verify", json={"email": email, "code": read_code(mailer, email)})
+        assert response.status_code == 200 and response.json() == {"status": "pending"}, response.text
+        assert "__Host-session" in c.cookies
+        return c
+
+    return do
+
+
+@pytest.fixture
 def captured_logs(caplog):
     """Everything the app logged during the test, as one string."""
     caplog.set_level(logging.DEBUG)

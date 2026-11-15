@@ -18,6 +18,7 @@ from app.db import Database
 from app.errors import ApiError
 from app.google import build_identity
 from app.mailer import Mailer, build_mailer
+from app import pages
 from app.rate_limit import RateLimiter
 from app.security_headers import SecurityHeadersMiddleware
 
@@ -74,7 +75,9 @@ def create_app(
         return JSONResponse({"error": "invalid_request", "message": "The request is not valid."}, status_code=422)
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_error(_: Request, exc: StarletteHTTPException):
+    async def http_error(request: Request, exc: StarletteHTTPException):
+        if exc.status_code == 404 and request.method == "GET" and not request.url.path.startswith("/v1"):
+            return pages.not_found_page()  # the friendly page; /v1/* keeps the JSON error shape
         names = {404: "not_found", 405: "method_not_allowed"}
         return JSONResponse(
             {"error": names.get(exc.status_code, "http_error"), "message": str(exc.detail)},
@@ -117,5 +120,6 @@ def create_app(
     from app.auth.routes import router as auth_router
 
     app.include_router(auth_router)
+    app.include_router(pages.router)
     app.include_router(admin_router)
     return app

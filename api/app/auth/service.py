@@ -197,10 +197,15 @@ async def _gate(state, email: str, ip: str | None, via: str) -> SignInOutcome:
         now = clock.now()
 
         if user is None and entry is None:
-            await conn.execute("INSERT INTO app.users (email, status) VALUES (%s, 'pending')", (email,))
-            await audit.record(conn, clock, proof, target=email, ip=ip, detail={"via": via})
-            await audit.record(conn, clock, "signin_pending", target=email, ip=ip)
-            return SignInOutcome(status="pending")
+            created = await conn.execute(
+                "INSERT INTO app.users (email, status) VALUES (%s, 'pending') RETURNING id", (email,)
+            )
+            new_id = (await created.fetchone())["id"]
+            await audit.record(conn, clock, proof, actor_user_id=new_id, actor_email=email, target=email, ip=ip,
+                               detail={"via": via})
+            await audit.record(conn, clock, "signin_pending", actor_user_id=new_id, actor_email=email, target=email,
+                               ip=ip)
+            return await _waiting_session(conn, state, new_id, email, ip)
 
         if user is None:  # allowlisted newcomer
             created = await conn.execute(
@@ -227,7 +232,7 @@ async def _gate(state, email: str, ip: str | None, via: str) -> SignInOutcome:
                                target=email, ip=ip, detail={"via": via})
             await audit.record(conn, clock, "signin_pending", actor_user_id=user["id"], actor_email=email,
                                target=email, ip=ip)
-            return SignInOutcome(status="pending")
+            return await _waiting_session(conn, state, user["id"], email, ip)
         else:  # suspended by an admin, rejected, or suspended by removal with no entry any more
             await audit.record(conn, clock, proof, actor_user_id=user["id"], actor_email=email,
                                target=email, ip=ip, detail={"via": via})
@@ -241,6 +246,15 @@ async def _gate(state, email: str, ip: str | None, via: str) -> SignInOutcome:
         await audit.record(conn, clock, "session_created", actor_user_id=user_id, actor_email=email,
                            target=email, ip=ip)
     return SignInOutcome(status="signed_in", role=role, token=token)
+
+
+async def _waiting_session(conn, state, user_id, email: str, ip: str | None) -> SignInOutcome:
+    """A pending person gets a session that proves who they are but opens nothing protected: every protected
+    route requires an active person (auth/deps.py), only the access-request routes accept a pending one."""
+    token = await create_session(conn, state, user_id, ip)
+    await audit.record(conn, state.clock, "session_created", actor_user_id=user_id, actor_email=email,
+                       target=email, ip=ip)
+    return SignInOutcome(status="pending", token=token)
 
 
 async def revoke_session(state, session_id, user, ip: str | None) -> None:

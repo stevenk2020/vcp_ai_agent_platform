@@ -39,9 +39,25 @@ class CurrentUser:
     session_id: UUID
 
 
+@dataclass(frozen=True)
+class CurrentPerson:
+    """A signed-in person who may still be waiting for approval (status pending). `role` only means
+    something once the person is active."""
+
+    id: UUID
+    email: str
+    role: str
+    status: str
+    session_id: UUID
+
+
 async def current_user(request: Request) -> CurrentUser:
-    """The signed-in user. The session is re-checked against the database on every request, so
-    revocation, expiry, suspension and role changes apply immediately."""
+    """The signed-in, APPROVED user (status active). The session is re-checked against the database on
+    every request, so revocation, expiry, suspension and role changes apply immediately.
+
+    Do NOT relax this to accept pending people: a waiting session must open only the routes that
+    explicitly use `current_person` (own status, access request). Every other route stays protected
+    by this function, and tests/integration/test_deny_by_default.py enforces it for every route."""
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         raise unauthenticated()
@@ -57,6 +73,29 @@ async def current_user(request: Request) -> CurrentUser:
     if row is None:
         raise unauthenticated()
     return CurrentUser(id=row["id"], email=row["email"], role=row["role"], session_id=row["session_id"])
+
+
+async def current_person(request: Request) -> CurrentPerson:
+    """Like `current_user` but also accepts a person who is still pending (a waiting session).
+    Suspended and rejected people are never accepted. Use only for routes meant for waiting people."""
+    token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        raise unauthenticated()
+    state = request.app.state
+    async with state.db.pool.connection() as conn:
+        cursor = await conn.execute(
+            "SELECT s.id AS session_id, u.id, u.email, u.role, u.status "
+            "FROM app.sessions s JOIN app.users u ON u.id = s.user_id "
+            "WHERE s.token_hash = %s AND s.revoked_at IS NULL AND s.expires_at > %s "
+            "AND u.status IN ('active', 'pending')",
+            (hash_token(token), state.clock.now()),
+        )
+        row = await cursor.fetchone()
+    if row is None:
+        raise unauthenticated()
+    return CurrentPerson(
+        id=row["id"], email=row["email"], role=row["role"], status=row["status"], session_id=row["session_id"]
+    )
 
 
 def require_role(*roles: str):

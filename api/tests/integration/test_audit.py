@@ -101,6 +101,9 @@ async def test_google_signin_pending_and_refused(client, identity, sql):
     assert {e["actor_email"] for e in events(sql, "google_signin") if e["actor_email"]} >= {ALICE}
     only(sql, "signin_pending")
     only(sql, "signin_refused", "failure")
+    # the pending person got a waiting session, and that is audited like any other session
+    pending_session = [e for e in events(sql, "session_created") if e["actor_email"] == "newcomer@example.org"]
+    assert len(pending_session) == 1
 
 
 async def test_rate_limited(client, sql):
@@ -236,7 +239,16 @@ async def test_no_secret_is_stored_or_logged_in_readable_form(client, identity, 
     await client.get("/v1/auth/google/callback", params={"code": google_code, "state": flow_state})
     google_session = client.cookies.get("__Host-session")
 
-    secrets = {"session token": session_token, "google session token": google_session, "google code": google_code,
+    # a pending person's waiting session token is just as unreadable in storage and logs
+    identity.email = "pending-person@example.org"
+    start = await client.get("/v1/auth/google/start")
+    pending_state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+    await client.get("/v1/auth/google/callback", params={"code": "pending-code", "state": pending_state})
+    pending_token = client.cookies.get("__Host-session")
+    assert pending_token and pending_token != google_session
+
+    secrets = {"session token": session_token, "google session token": google_session, "pending session token": pending_token,
+               "google code": google_code,
                "pkce verifier": verifier, "oauth state": flow_state}
     dumps = []
     for table in ("users", "allowlist", "email_codes", "sessions", "audit_events"):
