@@ -60,3 +60,10 @@ Caddy keeps its certificates in the `caddy_data` volume; losing it only means re
 
 All services use `restart: unless-stopped`, so the stack comes back with Docker. Run
 `docker compose ps` to confirm. If `backup` is `unhealthy`, see `docs/restore.md`.
+
+
+## The sync worker (feature 004)
+
+`make up` / `make up-prod` also start the `sync` service. It needs the SQL Server credentials in `secrets/source_sqlserver`
+(`make source-secret` copies them from `.env`); until that file is filled the service idles and says so in its log. The
+connection to the source is encrypted (`SOURCE_ENCRYPT=require`) and uses a SELECT-only account. See [`docs/sync.md`](sync.md).

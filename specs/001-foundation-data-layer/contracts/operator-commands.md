@@ -45,3 +45,13 @@ backup is missing or stale (FR-013).
 | `BACKUP_RETENTION_LOCAL_DAYS` | Local retention | `7` |
 | `BACKUP_REMOTE` | rclone remote path on Google Drive | `gdrive:platform-backups` |
 | `BACKUP_RETENTION_REMOTE_DAYS` | Retention on Google Drive | `30` |
+
+
+## Amendment 2026-11-15 (feature 004, sync worker)
+
+| Command | Effect |
+| --- | --- |
+| `make source-secret` | copies `sql_server_*` from `.env` into `secrets/source_sqlserver` (mode 600), prints key names only, refuses to overwrite without `ARGS=--force` |
+| `make sync-status` | state, data as of, counts and the last runs of every synced table |
+| `make sync-now` | one sync now under the same lock (`ARGS="--allow-empty"` for a legitimately empty source) |
+| `make test-sync` | the sync worker tests, in an isolated Compose project, with a fake source |

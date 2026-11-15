@@ -16,6 +16,9 @@ This repository currently contains:
 - **web pages** (`specs/003-web-sign-in-admin-ui`): the start page with Google sign-in, the access request page for
   people waiting for approval, and the admin area at `/admin` (approval queue, allowlist, people, audit log). Plain
   static files served by the `api` service; no framework, no build step.
+- the **sync worker** (`specs/004-sales-contract-sync`): the `sync` service copies the SQL Server table `dbo.sales_contract`
+  into `serving.sales_contract` about every 10 minutes (atomic swap, sanity guards, encrypted read-only connection, "data as
+  of"), with a **Data** tab in the admin area. See [`docs/sync.md`](docs/sync.md).
 
 ## Prerequisites
 
@@ -34,7 +37,7 @@ make test-api            # API tests, in an isolated project (never touches the 
 ```
 
 Other commands: `make down`, `make migrate`, `make up-prod` (adds Caddy on
-`vcp.onepercentdata.site`), `make backup`, `make restore-test`, `make scan-secrets`. Run a subset of
+`vcp.onepercentdata.site`), `make backup`, `make restore-test`, `make scan-secrets`, `make test-sync` (sync worker tests, isolated), `make source-secret`, `make sync-status`, `make sync-now`. Run a subset of
 the tests with `make test ARGS="-k permissions"` (not `make test -- -k ...`).
 
 ## Where things are

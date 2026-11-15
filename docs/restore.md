@@ -91,3 +91,9 @@ Not yet done: a restore into an empty database on a fresh host (disaster recover
 
 Automated: `tests/foundation/test_backup_restore.py` runs a full backup, upload to a local
 "remote", decrypt, restore and comparison on every `make test`.
+
+
+## The synced copy
+
+`serving.sales_contract` and the sync control tables are in the dump like every other table. After a restore the next sync
+(at most 10 minutes later) refreshes the copy; until then `data_as_of` shows the time of the last sync before the backup.

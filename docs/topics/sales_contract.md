@@ -5,6 +5,8 @@ Every statement marked **[CONFIRM]** is an inference that the business owner mus
 agent is allowed to rely on it. No customer names, employee names or money totals are stored here.
 
 Source: SQL Server `dbo.sales_contract`, 35,440 rows, 64 columns, every column nullable.
+**The platform copy (`serving.sales_contract`) has 62 columns**: the two salesperson columns are excluded and never copied
+(decision 2026-11-15, feature 004). The agent can only use what the copy holds.
 Rewritten by a delete+insert job about every 10 minutes (about 2 minutes per run, one commit).
 
 ## 1. What one row is
@@ -33,7 +35,7 @@ A document (`doc_no`) has on average 5 lines (up to 478). About 8,000 `biz_doc_i
 | Start date | `confirmed_date` (start of the contract), `confirmed_year`, `confirmed_month_no`, `confirmed_month_name_1` (`YYYY-MM`), `confirmed_month_name_2` (`Mar`), `confirmed_quarter_no`, `confirmed_quarter_text`, `confirmed_leadtime` | Null in 102 rows. |
 | End date | `finished_date` (tender end), `finished_year`, `finished_month_*`, `finished_quarter_*`, `finished_leadtime` | Never null. **This is when the tender/contract ends, not when goods were delivered.** |
 | Duration | `contract_leadtime` | Days between start and end **[CONFIRM unit]**. Null when `confirmed_date` is null. |
-| Salesperson | `employee_code_bdd`, `employee_name_bdd` | Name is null in 54% of rows, code null in 599 rows (9,082 more are empty strings). Treat as incomplete. |
+| Salesperson | `employee_code_bdd`, `employee_name_bdd` | **Not in the platform copy** (staff personal data, excluded on purpose). The agent cannot answer questions about salespeople. |
 
 `quantity_*`, prices and totals are floating point numbers in Vietnamese dong (VND), including
 fractional unit prices such as 7839.9993. Round on display; never compare totals for equality.
@@ -94,7 +96,7 @@ without saying so.
 1. Text filters on Vietnamese values need Unicode literals. A filter like `cat_1 = '2. Thầu'`
    sent as a plain literal silently matches **zero rows**. Use parameters or `N'...'`.
 2. Values contain a number prefix (`2. Thầu`, `1. Yes`). Offer short aliases to users, filter on full values.
-3. All columns are nullable; `employee_*`, `city_*`, `confirmed_*`, `decision_no` have real nulls.
+3. All columns are nullable; `city_*`, `confirmed_*`, `decision_no` have real nulls.
 4. Dates are `date`, but `created_at` and `update_time` are `datetime` (no time zone).
 5. The table is rebuilt every ~10 minutes; answers can differ between two asks. Always state the
    "data as of" time (`MAX(update_time)` or the sync time).
@@ -115,12 +117,12 @@ Answerable now (with the definitions above):
 9. Thầu bắt đầu mỗi tháng trong năm nay (số tài liệu, tổng giá trị).
 10. Giá trị hàng gửi thầu đang còn hiệu lực.
 11. So sánh giá trị hợp đồng giữa hai năm theo nhóm `cat_1` / `cat_2`.
-12. Nhân viên kinh doanh nào có giá trị hợp đồng cao nhất (cảnh báo: dữ liệu nhân viên thiếu hơn một nửa).
 
 Must ask or refuse with an explanation:
 
 13. "Doanh số tháng này" (which definition?). 14. "Hàng đã giao trong tháng 3" (no delivery date).
 15. "Lợi nhuận / biên lợi nhuận" (no cost column). 16. "Tồn kho" (not in this table).
+17. "Nhân viên kinh doanh nào có giá trị hợp đồng cao nhất" (salesperson data is excluded from the copy; say so, do not guess).
 
 ## 7. Open questions for the business owner
 
@@ -128,5 +130,5 @@ Must ask or refuse with an explanation:
 2. Meaning of `Áp Thầu`, `Gửi Thầu`, `CKG`, `is_hang_gui_thau`, tax codes.
 3. Should a not-yet-started contract count as "in force"? Does `finished_date` get extended when a tender is extended?
 4. Is there a table with delivery dates? If yes, add it as a second topic.
-5. Which columns are not allowed for which roles (salesperson, customer address, unit prices)?
+5. Which columns are not allowed for which roles (customer address, unit prices)? Excluded already: salesperson (decision 2026-11-15, feature 004).
 6. Which rows are test or obsolete (e.g. documents from 2004-2018, the 816 `Khác` rows)?
