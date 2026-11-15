@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fail if any secret value appears in tracked files or anywhere in git history.
-# Values come from secrets/* (except README.md) and from secret-looking keys in .env
+# Values come from secrets/* (except README.md; rclone_config only for secret-looking keys) and from
+# secret-looking keys in .env
 # (names containing password, secret, token or key). Only values of 8+ characters count.
 # Output lists file paths and commit hashes, never the matched value.
 # SCAN_ROOT overrides the repository to scan (used by the tests).
@@ -12,7 +13,13 @@ values() {
   local f
   for f in secrets/*; do
     [[ -f "$f" && "$(basename "$f")" != "README.md" ]] || continue
-    tr -d '\r' < "$f" | awk 'length($0) >= 8'
+    if [[ "$(basename "$f")" == "rclone_config" ]]; then
+      # ini-style file: only the values of secret-looking keys (client_secret, token, ...) count;
+      # section headers such as [gdrive] and keys like type or scope are not secrets
+      tr -d '\r' < "$f" | awk -F' *= *' 'tolower($1) ~ /(password|secret|token|key)/ { v=$0; sub(/^[^=]*= */, "", v); if (length(v) >= 8) print v }'
+    else
+      tr -d '\r' < "$f" | awk 'length($0) >= 8'
+    fi
   done
   if [[ -f .env ]]; then
     # KEY=VALUE lines whose key looks secret; strip optional quotes

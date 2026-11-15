@@ -85,8 +85,9 @@ is refused on purpose: drop and recreate it first (step 4).
 
 ## Last tested
 
-Real restore from Google Drive: **not yet** (fill in date, backup file, and result after the first
-run of `make restore-test` against a Drive-uploaded backup).
+2026-11-15: backup `platform-20261115-051710` uploaded to Google Drive (`gdrive:platform-backups`), `rclone check` reported 0 differences between Drive and the VPS volume, and `make restore-test` restored it into a scratch database with matching tables and row counts (`restore-test: OK`).
+
+Not yet done: a restore into an empty database on a fresh host (disaster recovery steps above).
 
 Automated: `tests/foundation/test_backup_restore.py` runs a full backup, upload to a local
 "remote", decrypt, restore and comparison on every `make test`.

@@ -47,7 +47,14 @@ def _secret_values() -> list[str]:
     for path in SECRETS_DIR.iterdir():
         if path.is_file() and path.name != "README.md":
             for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-                if len(line.strip()) >= 8:
+                if path.name == "rclone_config":
+                    # ini-style: only values of secret-looking keys count (not [gdrive], type, scope)
+                    key, _, value = line.partition("=")
+                    if any(word in key.lower() for word in ("password", "secret", "token", "key")):
+                        value = value.strip()
+                        if len(value) >= 8:
+                            values.append(value)
+                elif len(line.strip()) >= 8:
                     values.append(line.strip())
     env = REPO_ROOT / ".env"
     if env.is_file():

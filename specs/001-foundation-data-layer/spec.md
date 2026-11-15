@@ -179,11 +179,13 @@ Run on 2026-11-15 on the dev machine (which is also the production VPS). 93 auto
 | SC-001 one command to healthy in under 10 minutes | Met | `make up` from a clean volume took 8.9 s with images cached; the first run including image pulls took about 26 s |
 | SC-002 permitted operations succeed, forbidden ones are rejected | Met | `tests/foundation/test_permissions.py`, `test_extensions.py`, `test_swap.py` |
 | SC-003 queries over 30 s are cancelled | Met | `tests/foundation/test_agent_session.py` (`pg_sleep(31)` cancelled between 29 and 33 s) |
-| SC-004 daily backup and a restore that matches | Met in automated tests; **real Google Drive upload not done yet** | `test_backup_restore.py` (backup, upload to a local remote, decrypt, restore, compare counts; also detects a difference); blocked on T040 (age key and Drive) |
+| SC-004 daily backup and a restore that matches | Met | `test_backup_restore.py` (automated round trip) and, on 2026-11-15, a real backup uploaded to Google Drive, verified with `rclone check` and restored into a scratch database with matching row counts (T040) |
 | SC-005 zero credential values in repository and history | Met | `scripts/scan-secrets.sh`, `test_secrets_scope.py` |
 | SC-006 re-running migrations is a no-op | Met | `tests/foundation/test_migrations.py` |
 | SC-007 four verification items recorded with owner and status | **Partly**: the tracker exists (`docs/phase0-verification.md`), owners are still `TODO(owner)` and all items are `open` | T047 is the operator's |
 
 HTTPS verified on 2026-11-15: `make up-prod` obtained a Let's Encrypt certificate for `vcp.onepercentdata.site` and `https://vcp.onepercentdata.site/healthz` returns 200 (T016). The SQL Server account is SELECT-only (T030).
 
-Not yet verified (operator tasks): Google Drive backup and first real restore (T040), the remaining verification items V-2, V-3 and V-4 (T047).
+Google Drive backup and a first real restore were verified on 2026-11-15 (T040). The daily schedule (`0 2 * * *`) has not yet run unattended: check `docker compose ps` for `backup` health and the Drive folder after the first night.
+
+Not yet verified (operator task): the remaining verification items V-2, V-3 and V-4 (T047).
