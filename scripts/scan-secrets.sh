@@ -23,7 +23,7 @@ values() {
   done
   if [[ -f .env ]]; then
     # KEY=VALUE lines whose key looks secret; strip optional quotes
-    awk -F= 'tolower($1) ~ /(password|secret|token|key)/ { v=$0; sub(/^[^=]*=/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); if (length(v) >= 8) print v }' .env
+    awk -F= '/^[[:space:]]*#/ { next } !/=/ { next } tolower($1) ~ /(password|secret|token|key)/ { v=$0; sub(/^[^=]*=/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); if (length(v) >= 8) print v }' .env
   fi
 }
 
