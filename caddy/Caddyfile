@@ -1,0 +1,15 @@
+# HTTPS entry point (placeholder until the API exists).
+{
+	# no global options needed; certificates are issued automatically for the site below
+}
+
+{$PLATFORM_DOMAIN} {
+	respond /healthz 200
+	respond "AI Agent Platform: foundation layer is up." 200
+}
+
+# Internal-only block for the container healthcheck; this port is not published.
+:8081 {
+	bind 127.0.0.1
+	respond /healthz 200
+}

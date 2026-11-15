@@ -11,3 +11,8 @@ node_modules/
 .DS_Store
 data/
 *.parquet
+secrets/*
+!secrets/README.md
+backups/
+.pytest_cache/
+tests/.venv/

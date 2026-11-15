@@ -1,0 +1,82 @@
+# Foundation stack (specs/001-foundation-data-layer).
+# - No service uses env_file: secrets reach containers only as files under /run/secrets.
+# - The backup service lives in compose.backup.yaml (loaded by `make up` only when an age key exists).
+name: platform
+
+networks:
+  platform:
+    name: platform
+
+volumes:
+  pgdata:
+  backup_local:
+  caddy_data:
+  caddy_config:
+
+secrets:
+  postgres_superuser_password:
+    file: ./secrets/postgres_superuser_password
+  app_owner_password:
+    file: ./secrets/app_owner_password
+  sync_writer_password:
+    file: ./secrets/sync_writer_password
+  agent_ro_password:
+    file: ./secrets/agent_ro_password
+  backup_ro_password:
+    file: ./secrets/backup_ro_password
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_superuser_password
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+    secrets:
+      - postgres_superuser_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # loopback only, in every environment (plan R-9)
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - platform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-platform}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - platform
+    healthcheck:
+      test: ["CMD-SHELL", "[ \"$$(redis-cli ping)\" = \"PONG\" ]"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    profiles: ["prod"]
+    environment:
+      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-vcp.onepercentdata.site}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - platform
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/healthz >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
