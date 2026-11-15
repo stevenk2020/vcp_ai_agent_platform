@@ -28,6 +28,7 @@ def _entry(row) -> dict:
     return {
         "id": str(row["id"]), "kind": row["kind"], "value": row["value"], "default_role": row["default_role"],
         "added_by": str(row["added_by"]) if row["added_by"] else None, "created_at": _iso(row["created_at"]),
+        "added_by_email": row.get("added_by_email"),
     }
 
 
@@ -91,13 +92,16 @@ async def add_entry(state, actor: CurrentUser, kind: str, value: str, role: str,
                                target=f"{kind}:{value}", ip=ip, detail={"default_role": role})
     except psycopg.errors.UniqueViolation as exc:
         raise conflict("This entry already exists.") from exc
-    return _entry(row)
+    entry = _entry(row)
+    entry["added_by_email"] = actor.email
+    return entry
 
 
 async def list_entries(state) -> list[dict]:
     async with state.db.pool.connection() as conn:
         cursor = await conn.execute(
-            "SELECT id, kind, value, default_role, added_by, created_at FROM app.allowlist ORDER BY created_at, id"
+            "SELECT a.id, a.kind, a.value, a.default_role, a.added_by, a.created_at, u.email AS added_by_email "
+            "FROM app.allowlist a LEFT JOIN app.users u ON u.id = a.added_by ORDER BY a.created_at, a.id"
         )
         return [_entry(r) for r in await cursor.fetchall()]
 

@@ -81,3 +81,66 @@ async def test_two_admins_approving_at_once_get_one_success_and_one_conflict(log
     assert sorted(r.status_code for r in results) == [200, 409]
     approved = sql.execute("SELECT count(*) AS n FROM app.audit_events WHERE action = 'user_approved'").fetchone()["n"]
     assert approved == 1
+
+
+# ---- allowlist and people (US4) ----------------------------------------------------------------------
+
+async def test_allowlist_items_say_who_added_them(login, sql):
+    one = await login("one@example.com", role="admin")
+    created = await one.post("/v1/admin/allowlist", json={"kind": "email", "value": "n@example.org", "default_role": "user"})
+    assert created.status_code == 201 and created.json()["added_by_email"] == "one@example.com"
+    items = (await one.get("/v1/admin/allowlist")).json()["items"]
+    entry = next(i for i in items if i["value"] == "n@example.org")
+    assert entry["added_by_email"] == "one@example.com"
+    assert set(entry) >= {"id", "kind", "value", "default_role", "added_by", "created_at", "added_by_email"}
+    # an entry whose adder row is gone (or was a script) has no adder email but is still listed
+    sql.execute("INSERT INTO app.allowlist (kind, value, default_role) VALUES ('domain', 'corp.example', 'user')")
+    items = (await one.get("/v1/admin/allowlist")).json()["items"]
+    assert next(i for i in items if i["value"] == "corp.example")["added_by_email"] is None
+
+
+@pytest.mark.parametrize("status,reason", [("suspended", "admin"), ("rejected", None)])
+async def test_reactivation_is_approve_with_a_role_and_old_sessions_stay_dead(login, new_client, sql, status, reason):
+    person = add_user(sql, "back@example.org", status, reason=reason)
+    admin = await login(ADMIN, role="admin")
+    response = await admin.post(f"/v1/admin/users/{person}/approve?expect_status={status}", json={"role": "builder"})
+    assert response.status_code == 200 and (response.json()["status"], response.json()["role"]) == ("active", "builder")
+    row = sql.execute("SELECT suspended_reason FROM app.users WHERE id = %s", (person,)).fetchone()
+    assert row["suspended_reason"] is None
+    assert sql.execute("SELECT count(*) AS n FROM app.audit_events WHERE action = 'user_approved'").fetchone()["n"] == 1
+    assert sql.execute("SELECT count(*) AS n FROM app.sessions WHERE user_id = %s AND revoked_at IS NULL",
+                       (person,)).fetchone()["n"] == 0
+
+
+async def test_the_last_admin_is_protected_with_a_stable_error_the_page_maps(login, sql):
+    only_admin = await login(ADMIN, role="admin")
+    me = (await only_admin.get("/v1/me")).json()["id"]
+    for path, body in ((f"/v1/admin/users/{me}/suspend", None), (f"/v1/admin/users/{me}/role", {"role": "user"})):
+        response = await only_admin.post(path, json=body)
+        assert response.status_code == 409 and response.json()["error"] == "last_admin", path
+    entry = sql.execute("SELECT id FROM app.allowlist WHERE value = %s", (ADMIN,)).fetchone()["id"]  # added by login()
+    response = await only_admin.delete(f"/v1/admin/allowlist/{entry}")
+    assert response.status_code == 409 and response.json()["error"] == "last_admin"
+    assert (await only_admin.get("/v1/me")).status_code == 200
+
+
+async def test_bad_or_duplicate_allowlist_entries_explain_themselves(login):
+    admin = await login(ADMIN, role="admin")
+    bad_email = await admin.post("/v1/admin/allowlist", json={"kind": "email", "value": "not-an-email", "default_role": "user"})
+    assert bad_email.status_code == 422 and bad_email.json()["message"] == "The email address is not valid."
+    bad_domain = await admin.post("/v1/admin/allowlist", json={"kind": "domain", "value": "no_dot", "default_role": "user"})
+    assert bad_domain.status_code == 422 and bad_domain.json()["message"] == "The domain is not valid."
+    body = {"kind": "domain", "value": "corp.example", "default_role": "user"}
+    assert (await admin.post("/v1/admin/allowlist", json=body)).status_code == 201
+    duplicate = await admin.post("/v1/admin/allowlist", json=body)
+    assert duplicate.status_code == 409 and duplicate.json()["error"] == "conflict"
+
+
+async def test_removing_an_entry_ends_that_persons_session_on_the_next_request(login):
+    admin = await login(ADMIN, role="admin")
+    person = await login("gone@example.org")
+    entries = (await admin.get("/v1/admin/allowlist")).json()["items"]
+    entry = next(i for i in entries if i["value"] == "gone@example.org")
+    assert (await person.get("/v1/me")).status_code == 200
+    assert (await admin.delete(f"/v1/admin/allowlist/{entry['id']}")).status_code == 204
+    assert (await person.get("/v1/me")).status_code == 401
