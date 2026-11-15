@@ -25,7 +25,7 @@ sending real email. The first admin is created by a one-time command on the serv
 
 **Storage**: PostgreSQL 16 (schema `app`: `users`, `allowlist`, `email_codes`, `sessions`, `audit_events`), Redis 7 (rate-limit counters only, no durable data)
 
-**Testing**: pytest + pytest-asyncio; integration tests run **inside the compose network** in a one-off `api-test` container (real Postgres and Redis, in-process ASGI client, fake clock, capturing mailer, fake Google provider)
+**Testing**: pytest + pytest-asyncio; integration tests run in a separate Compose project (`platform-apitest`, own Postgres and Redis, removed afterwards) from a one-off `api-test` container (in-process ASGI client, fake clock, capturing mailer, fake Google provider, log capture); the live database is never touched
 
 **Target Platform**: Linux containers on the existing single-host Docker Compose stack, behind Caddy
 
@@ -101,6 +101,7 @@ db/
 caddy/Caddyfile                 # proxy /v1/* to the api service
 compose.yaml                    # add api and api-test (profile `test`)
 scripts/gen-secrets.sh          # also create api_rw_password, auth_pepper, api_external template
+scripts/test-api.sh             # isolated Compose project for the API tests (make test-api)
 ```
 
 **Structure Decision**: One Python package `api/app` that the later features (conversations, topic

@@ -44,6 +44,7 @@ An admin adds an email address or a whole email domain to the allowlist with a d
 4. **Given** people waiting in the approval queue, **When** an admin approves one and picks a role, **Then** that person can sign in; **When** an admin rejects one, **Then** they cannot.
 5. **Given** a signed-in person who is not an admin, **When** they attempt any admin action, **Then** it is refused.
 6. **Given** a pending person, **When** an admin later adds their email (or domain) to the allowlist, **Then** the next sign-in succeeds without a separate approval step.
+7. **Given** a person who was suspended only because their allowlist entry was removed, **When** an admin adds a matching entry again, **Then** their next sign-in succeeds; **Given** a person suspended or rejected by an admin, **When** a matching entry exists, **Then** they stay blocked until an admin approves them.
 
 ---
 
@@ -132,7 +133,7 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - A code is requested twice in a row: only the newest code works (earlier ones are cancelled).
 - The same email is typed in different letter case or with surrounding spaces: it is the same person.
 - An email matches both a single-email entry and a domain entry: the single-email entry's role wins.
-- A user is removed from the allowlist and added back: they sign in again as normal; old sessions stay revoked.
+- A user is removed from the allowlist and added back: they sign in again as normal and old sessions stay revoked, unless an admin suspended or rejected them in the meantime (then they stay blocked until approved).
 - A signed-in user's role is changed by an admin: the new role applies on their next request.
 - An admin removes their own entry or the last admin: the system refuses so it can never be left without an admin.
 - Mail delivery fails: the person is told to try again later, no code stays valid that was never sent, and the failure is audited.
@@ -163,9 +164,9 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - **FR-016**: The system MUST refuse to remove, suspend or demote the last remaining admin.
 - **FR-017**: The system MUST deliver codes through a transactional email service, and MUST capture codes locally instead of sending real email in development and tests.
 - **FR-018**: The system MUST record sign-in successes and failures, approvals, rejections, removals, role changes and session revocations with time, actor and IP address.
-- **FR-019**: The system MUST NOT store sign-in codes, session tokens or Google tokens in readable form in storage or logs; only irreversible hashes of codes and session tokens may be kept.
+- **FR-019**: The system MUST NOT store sign-in codes, session tokens or Google tokens in readable form in storage or logs; only irreversible keyed hashes of codes and hashes of session tokens may be kept. The one exception is the development-only mail capture sink of FR-017: it is refused in production, its files are deleted after at most one hour, and it is not part of the stored data this requirement covers.
 - **FR-020**: The system MUST treat email addresses as case-insensitive and ignore surrounding spaces.
-- **FR-021**: When an admin adds an email or domain that matches a pending person, that person's next sign-in MUST succeed without a separate approval.
+- **FR-021**: When an admin adds an email or domain that matches a pending person, or a person who was suspended only because their allowlist entry was removed, that person's next sign-in MUST succeed without a separate approval. People suspended or rejected by an admin MUST stay blocked until an admin approves them, even if they match an allowlist entry.
 - **FR-022**: The system MUST NOT include a chat interface, agent loop, LLM gateway, topics, user profile pages, multi-factor authentication, passwords, or a visual admin dashboard; admin actions are offered as a service interface only.
 
 ### Key Entities *(include if feature involves data)*
@@ -186,7 +187,7 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - **SC-003**: After an admin removes, rejects or suspends a person, 100% of that person's existing sessions are refused on their next request, with no waiting period.
 - **SC-004**: For allowlisted and non-allowlisted emails the sign-in form returns identical visible responses, and over 200 trials the difference between median response times is under 20%.
 - **SC-005**: 100% of admin actions attempted by non-admin users are refused.
-- **SC-006**: A search of the stored data and logs after a full test run finds zero readable codes, session tokens or Google tokens.
+- **SC-006**: A search of the stored data (database tables and logs, excluding the development-only mail capture sink) after a full test run finds zero readable codes, session tokens or Google tokens.
 - **SC-007**: The first-admin procedure creates exactly one admin on an empty system and 0 additional admins when repeated.
 - **SC-008**: 100% of the audited event types listed in FR-018 produce exactly one audit record each in the acceptance tests.
 - **SC-009**: Once the per-email cap is reached, 0 additional emails are sent for that address within the window.
@@ -196,6 +197,8 @@ Admins can review a record of sign-ins (successes and failures), approvals, reje
 - Email delivery uses a transactional email service chosen during planning; its credentials are provided by the operator later. Until then codes are captured locally (FR-017).
 - Google sign-in needs a Google OAuth client created by the operator; it is not available yet, so Google sign-in is tested with a stand-in identity provider and the real hookup is a later operator task.
 - A domain entry matches only that exact domain, not its subdomains.
+- The sign-in email is written in Vietnamese followed by English, because the users are Vietnamese speakers; the code and its 10-minute lifetime are stated in both.
+- The success criterion SC-001 (under 60 seconds) is an experience target checked by hand in the quickstart, not by an automated test.
 - One account per email address; the same person using both paths is the same user.
 - Default limits (adjustable settings, not fixed in code): 5 codes per email and 20 per IP address per hour; the 5-attempt and 10-minute rules are fixed by FR-004.
 - The chat and admin screens come in a later feature; here admin actions are available only as a service interface, and a signed-in session is demonstrated with a simple protected check.

@@ -15,6 +15,7 @@ timestamps supplied by the application clock (so tests can advance time), not `n
 | `name` | text | nullable (not collected in this feature) |
 | `role` | text | not null, `CHECK (role IN ('admin','builder','user'))`, default `'user'` |
 | `status` | text | not null, `CHECK (status IN ('pending','active','suspended','rejected'))`, default `'pending'` |
+| `suspended_reason` | text | nullable, `CHECK (suspended_reason IN ('admin','allowlist_removed'))` and `CHECK ((status = 'suspended') = (suspended_reason IS NOT NULL))` |
 | `last_login_at` | timestamptz | nullable |
 
 This table is also the **approval queue**: the queue is `status = 'pending'` ordered by `created_at`
@@ -27,12 +28,14 @@ State transitions:
                   └─not allowlisted───────────▶ pending
 pending ──admin approve(role)──▶ active        pending ──admin reject──▶ rejected
 pending ──email/domain added to allowlist and next sign-in──▶ active
-active  ──admin suspend──▶ suspended           suspended ──admin approve(role)──▶ active
-active  ──allowlist entry removed (no other entry matches)──▶ suspended   (sessions revoked)
-rejected ──admin approve(role)──▶ active
+active  ──admin suspend──▶ suspended (reason admin)
+active  ──allowlist entry removed (no other entry matches)──▶ suspended (reason allowlist_removed, sessions revoked)
+suspended (reason allowlist_removed) ──a matching entry exists at next sign-in──▶ active (entry role)
+suspended (reason admin) ──admin approve(role)──▶ active   rejected ──admin approve(role)──▶ active
 ```
 
-Rules: removing an allowlist entry suspends only active users whose email matches that entry and no
+Rules: a person suspended with reason `admin`, or rejected, stays blocked even if an allowlist entry
+matches; approving anyone clears `suspended_reason`. Removing an allowlist entry suspends only active users whose email matches that entry and no
 other entry (a person approved by hand whose email matches neither is not affected); the last active
 admin cannot be suspended, rejected, demoted or left without access (`409 last_admin`).
 
@@ -128,3 +131,4 @@ Action names: `code_requested`, `code_send_failed`, `code_verified`, `code_faile
 | `CODE_RATE_PER_IP` | codes per IP per hour | `20` |
 | `VERIFY_RATE_PER_IP` | verify attempts per IP per 10 minutes | `30` |
 | `SESSION_DAYS` | session lifetime | `7` |
+| `MAIL_CAPTURE_TTL_MINUTES` | capture sink files older than this are deleted (development only) | `60` |

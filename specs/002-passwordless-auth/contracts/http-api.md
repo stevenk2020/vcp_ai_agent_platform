@@ -9,10 +9,11 @@ Base path `/v1`, JSON only, served by the `api` service behind Caddy at
 - **Errors** share one shape: `{"error": "<code>", "message": "<human text>"}`. Codes used here:
   `invalid_request`, `invalid_or_expired_code`, `rate_limited`, `unauthenticated`, `forbidden`,
   `origin_not_allowed`, `not_found`, `conflict`, `last_admin`, `try_again_later`, `not_configured`.
-- **Session cookie**: `__Host-session=<token>; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`.
+- **Session cookie**: `__Host-session=<token>; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=<SESSION_DAYS * 86400>` (604800 by default).
   The token is random and opaque; only its hash is stored.
-- **CSRF**: every `POST`, `PUT`, `PATCH`, `DELETE` that relies on the session cookie must carry an
-  `Origin` header equal to `PUBLIC_ORIGIN`, otherwise `403 origin_not_allowed`.
+- **CSRF**: every `POST`, `PUT`, `PATCH`, `DELETE` (including the sign-in endpoints) must carry an
+  `Origin` header equal to `PUBLIC_ORIGIN`, otherwise `403 origin_not_allowed`. Browsers send it on
+  their own; scripts and `curl` must add it.
 - Email addresses are trimmed and compared case-insensitively; at most 254 characters.
 - Messages never say whether an email is on the allowlist.
 
@@ -38,9 +39,9 @@ Body: `{"email": "...", "code": "123456"}` (`code` is exactly 6 digits).
 
 | Result | Meaning |
 | --- | --- |
-| `200` `{"status": "signed_in", "role": "user"}` + `Set-Cookie` | Code correct; email is allowlisted or already active |
+| `200` `{"status": "signed_in", "role": "user"}` + `Set-Cookie` | Code correct; email is allowlisted, already active, or was suspended only by allowlist removal and an entry matches again |
 | `200` `{"status": "pending"}` (no cookie) | Code correct; not allowlisted; now in the approval queue |
-| `200` `{"status": "refused"}` (no cookie) | Code correct, but the account is suspended or rejected |
+| `200` `{"status": "refused"}` (no cookie) | Code correct, but an admin suspended or rejected the account |
 | `401 invalid_or_expired_code` | Wrong, expired, already used, cancelled or locked code (all identical) |
 | `429 rate_limited` | Too many verify attempts from this IP |
 
@@ -80,7 +81,7 @@ The protected check every later feature can call.
 | --- | --- | --- |
 | `GET /v1/admin/allowlist` | none | `200` `{"items": [{"id", "kind", "value", "default_role", "added_by", "created_at"}]}` |
 | `POST /v1/admin/allowlist` | `{"kind": "email" or "domain", "value": "...", "default_role": "admin" or "builder" or "user"}` | `201` the entry; `409 conflict` if it already exists; `422` for a malformed value |
-| `DELETE /v1/admin/allowlist/{id}` | none | `204`; sessions of active users who matched only this entry are revoked and those users suspended in the same transaction; `404`; `409 last_admin` if it would leave no admin |
+| `DELETE /v1/admin/allowlist/{id}` | none | `204`; sessions of active users who matched only this entry are revoked and those users suspended (reason `allowlist_removed`) in the same transaction; `404`; `409 last_admin` if it would leave no admin |
 
 ### People and the approval queue
 
@@ -89,7 +90,7 @@ The protected check every later feature can call.
 | `GET /v1/admin/users?status=pending` | none | `200` `{"items": [{"id", "email", "role", "status", "created_at", "last_login_at"}]}`; `status` is optional and one of `pending`, `active`, `suspended`, `rejected` |
 | `POST /v1/admin/users/{id}/approve` | `{"role": "user"}` | `200` the user, now `active` with that role |
 | `POST /v1/admin/users/{id}/reject` | none | `200` the user, now `rejected`; sessions revoked |
-| `POST /v1/admin/users/{id}/suspend` | none | `200`; sessions revoked; `409 last_admin` if it would leave no admin |
+| `POST /v1/admin/users/{id}/suspend` | none | `200`; suspended with reason `admin`; sessions revoked; `409 last_admin` if it would leave no admin |
 | `POST /v1/admin/users/{id}/role` | `{"role": "builder"}` | `200`; applies on the user's next request; `409 last_admin` when demoting the last admin |
 
 ### Audit

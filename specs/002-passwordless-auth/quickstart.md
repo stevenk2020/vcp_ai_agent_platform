@@ -11,6 +11,23 @@ End-to-end checks for each success criterion. Interfaces are in [contracts/](con
   the capture directory inside the `api` container: `docker compose exec api ls /var/mail-capture`
 - No SMTP or Google credentials are needed for any scenario below; Google is exercised with a fake provider
 
+## How to call the API
+
+The `api` service publishes no port. This host is also the server, so use the public HTTPS entry:
+`make up-prod`, then call `https://vcp.onepercentdata.site/v1/...`. The cookie is `Secure`, so keep
+a cookie jar (`curl -c jar -b jar`) and add the `Origin` header to every `POST`, `PUT`, `PATCH` and
+`DELETE`, for example:
+
+```bash
+O=https://vcp.onepercentdata.site
+curl -sS -c jar -b jar -H "Origin: $O" -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com"}' $O/v1/auth/code/request
+```
+
+While `MAIL_BACKEND=capture` is on, anyone can reach `/v1/*` but cannot read the capture directory,
+so nobody outside can finish a sign-in; that is safe. Automated checks (`make test-api`) run in an
+isolated project and never touch the live database.
+
 ## Scenario 1: First admin (SC-007)
 
 ```bash
@@ -22,6 +39,9 @@ Expect: first command exit 0; second exit 2 and no new admin; `GET /v1/admin/aud
 below) shows `first_admin_created` and `first_admin_refused`.
 
 ## Scenario 2: Sign in with a code and reach a protected endpoint (SC-001, SC-002)
+
+SC-001 (under 60 seconds from entering the email to being signed in, once the mail has arrived) is an
+experience target: time it by hand once.
 
 1. `POST /v1/auth/code/request` with `{"email": "admin@example.com"}` returns `202`.
 2. Read the code from the capture directory.
@@ -38,7 +58,7 @@ As the admin (cookie from scenario 2, `Origin` header set to the public origin):
 1. `POST /v1/admin/allowlist` with `{"kind":"email","value":"alice@example.com","default_role":"user"}`.
 2. Sign in as alice (request, verify): `signed_in`, role `user`.
 3. As alice call `GET /v1/admin/allowlist`: `403 forbidden`.
-4. As admin `DELETE /v1/admin/allowlist/{id}`; as alice `GET /v1/me`: `401` on the very next request.
+4. As admin `DELETE /v1/admin/allowlist/{id}`; as alice `GET /v1/me`: `401` on the very next request. Add the entry again: alice can sign in again. Suspend someone by hand and add them to the allowlist: they stay blocked until approved.
 5. Sign in as `bob@example.com` (not allowlisted): verify returns `200 pending`, no cookie; bob's
    `GET /v1/me` is `401`; `GET /v1/admin/users?status=pending` lists bob; approve him with a role and he
    can sign in; reject someone else and they cannot.
