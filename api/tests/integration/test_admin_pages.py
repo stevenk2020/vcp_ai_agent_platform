@@ -73,3 +73,12 @@ async def test_a_session_revoked_after_the_page_loaded_fails_on_the_next_api_cal
     sql.execute("UPDATE app.sessions SET revoked_at = now(), revoked_reason = 'signed_out'")
     assert (await admin.get("/v1/admin/users")).status_code == 401
     assert (await admin.get("/admin", follow_redirects=False)).status_code == 302
+
+
+async def test_the_admin_page_has_the_data_tab_for_admins_only(login, login_pending):
+    admin = await login("admin@example.com", role="admin")
+    page = await admin.get("/admin")
+    assert page.status_code == 200 and 'data-tab="data"' in page.text
+    waiting = await login_pending("w@example.org")
+    refused = await waiting.get("/admin")
+    assert refused.status_code == 403 and 'data-tab="data"' not in refused.text

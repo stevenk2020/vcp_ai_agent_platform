@@ -135,3 +135,24 @@ def captured_logs(caplog):
     """Everything the app logged during the test, as one string."""
     caplog.set_level(logging.DEBUG)
     return lambda: caplog.text
+
+
+# ---------- feature 004: the sync control tables, created by the worker's own SQL as role sync_writer ----------
+
+def _sync_writer_conninfo(settings) -> str:
+    password = Path("/run/secrets/sync_writer_password").read_text(encoding="utf-8").strip()
+    return (
+        f"host={settings.postgres_host} port={settings.postgres_port} dbname={settings.postgres_db} "
+        f"user=sync_writer password={password}"
+    )
+
+
+@pytest.fixture
+def sw(base_settings):
+    """Autocommit connection as sync_writer with the control tables created (from sync/sql/control.sql) and empty."""
+    sql_text = Path("/sync-sql/control.sql").read_text(encoding="utf-8")
+    with psycopg.connect(_sync_writer_conninfo(base_settings), autocommit=True, row_factory=psycopg.rows.dict_row) as conn:
+        conn.execute(sql_text)
+        conn.execute("TRUNCATE serving.sync_state, serving.sync_runs, serving.sync_requests RESTART IDENTITY")
+        yield conn
+        conn.execute("DROP TABLE IF EXISTS serving.sync_state, serving.sync_runs, serving.sync_requests")

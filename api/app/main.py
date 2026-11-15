@@ -117,6 +117,7 @@ def create_app(
     app.add_middleware(SecurityHeadersMiddleware, production=settings.app_env == "production")
 
     from app.admin.routes import router as admin_router
+    from app.admin.sync import router as sync_router
     from app.auth.access import router as access_router
     from app.auth.routes import router as auth_router
 
@@ -124,4 +125,5 @@ def create_app(
     app.include_router(access_router)
     app.include_router(pages.router)
     app.include_router(admin_router)
+    app.include_router(sync_router)
     return app

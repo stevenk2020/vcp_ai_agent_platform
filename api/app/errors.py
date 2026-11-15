@@ -44,6 +44,14 @@ def already_handled() -> ApiError:
     return ApiError(409, "already_handled", "Someone else already handled this person. Refresh the list.")
 
 
+def unknown_table() -> ApiError:
+    return ApiError(404, "unknown_table", "This table is not synced.")
+
+
+def sync_busy() -> ApiError:
+    return ApiError(409, "sync_busy", "A sync is already waiting or running.")
+
+
 def not_configured(message: str) -> ApiError:
     return ApiError(503, "not_configured", message)
 

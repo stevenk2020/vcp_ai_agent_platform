@@ -259,11 +259,99 @@ async function renderAudit() {
   await load(false);
 }
 
+// ---- Data (sync status and run history) ---------------------------------------------------------------------
+const STATE_LABEL = { healthy: "Healthy", stale: "Stale", failing: "Failing", no_data: "No data yet" };
+const STATE_BADGE = { healthy: "ok", stale: "warn", failing: "bad", no_data: "none" };
+const REFRESH_MS = 15000;
+let dataTimer = null;
+
+function stopRefresh() {
+  if (dataTimer !== null) {
+    clearInterval(dataTimer);
+    dataTimer = null;
+  }
+}
+
+function minutes(seconds) {
+  if (seconds === null || seconds === undefined) return "";
+  return seconds < 60 ? "under a minute" : `${Math.floor(seconds / 60)} min`;
+}
+
+function whenCell(label, iso) {
+  if (!iso) return cell(label, "");
+  return cell(label, el("span", { title: iso }, fmtTime(iso)));
+}
+
+function statusBlock(item) {
+  const facts = [
+    ["Data as of", item.data_as_of ? `${fmtTime(item.data_as_of)} (${minutes(item.age_seconds)} ago)` : "never"],
+    ["Rows", item.copied_rows === null ? "" : `${item.copied_rows} copied of ${item.source_rows} read`],
+    ["Failed or refused runs in a row", String(item.consecutive_failures)],
+    ["Latest outcome", [item.last_outcome, item.last_reason].filter(Boolean).join(": ") || "none yet"],
+    ["Right now", item.running ? "a sync is running" : item.request_pending ? "a sync was requested" : "idle"],
+  ];
+  const list = el("dl", { class: "facts" });
+  for (const [term, value] of facts) list.append(el("dt", {}, term), el("dd", {}, value));
+  const badge = el("span", { class: "badge " + (STATE_BADGE[item.state] || "none") }, STATE_LABEL[item.state] || "Unknown");
+  return el("section", { "aria-label": `Table ${item.table}` }, el("h3", {}, item.table, " ", badge), list);
+}
+
+async function renderData() {
+  stopRefresh();
+  clear(panel);
+  panel.appendChild(el("h2", {}, "Data"));
+  panel.appendChild(el("p", { class: "muted" },
+    "Copies of source tables that the platform answers questions from. They refresh about every 10 minutes."));
+  const blocks = el("div", {});
+  const runsBody = el("tbody", {});
+  const runsNote = el("p", { class: "muted", hidden: true });
+  panel.appendChild(blocks);
+  panel.appendChild(el("h3", {}, "Latest runs"));
+  panel.appendChild(el("div", { class: "table-wrap" }, el("table", { class: "table" },
+    el("thead", {}, el("tr", {}, ["Started", "Table", "Trigger", "Outcome", "Reason", "Rows", "Duration", "Message"].map((h) => el("th", { scope: "col" }, h)))),
+    runsBody)));
+  panel.appendChild(runsNote);
+
+  const load = async () => {
+    const [status, runs] = await Promise.all([api("GET", "/v1/admin/sync"), api("GET", "/v1/admin/sync/runs?limit=20")]);
+    if (status.status !== 200) return fail(status);
+    if (runs.status !== 200) return fail(runs);
+    say("", "");
+    clear(blocks);
+    if (status.data.tables.length === 0) {
+      blocks.appendChild(el("p", {}, "No synced table is registered yet. The sync service registers its tables when it starts."));
+    }
+    for (const item of status.data.tables) blocks.appendChild(statusBlock(item));
+    clear(runsBody);
+    for (const run of runs.data.items) {
+      runsBody.appendChild(el("tr", {},
+        whenCell("Started", run.started_at),
+        cell("Table", run.table),
+        cell("Trigger", run.trigger),
+        cell("Outcome", run.outcome),
+        cell("Reason", run.reason_code || ""),
+        cell("Rows", run.copied_rows === null ? (run.source_rows === null ? "" : `${run.source_rows} read`) : `${run.copied_rows}`),
+        cell("Duration", run.duration_ms === null ? "" : `${(run.duration_ms / 1000).toFixed(1)} s`),
+        cell("Message", run.error_text || "")));
+    }
+    runsNote.textContent = runs.data.items.length === 0 ? "No runs yet." : "";
+    runsNote.hidden = !runsNote.textContent;
+  };
+
+  await load();
+  // refresh while this tab is open and visible; the timer is cleared as soon as another tab is shown
+  dataTimer = setInterval(() => {
+    if (currentTab() !== "data") return stopRefresh();
+    if (document.visibilityState === "visible") load();
+  }, REFRESH_MS);
+}
+
 // ---- tabs ----------------------------------------------------------------------------------------------------
 const TABS = {
   queue: renderQueue,
   allowlist: renderAllowlist,
   people: renderPeople,
+  data: renderData,
   audit: renderAudit,
 };
 
@@ -274,6 +362,7 @@ function currentTab() {
 
 async function render() {
   const name = currentTab();
+  if (name !== "data") stopRefresh();
   for (const link of document.querySelectorAll("nav.tabs a")) {
     if (link.dataset.tab === name) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");

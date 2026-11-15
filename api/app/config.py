@@ -40,6 +40,7 @@ class Settings:
     session_days: int = 7
     mail_capture_dir: str = "/var/mail-capture"
     mail_capture_ttl_minutes: int = 60
+    sync_request_ttl_minutes: int = 15
 
     @property
     def smtp_configured(self) -> bool:
@@ -71,7 +72,7 @@ def validate(settings: Settings) -> Settings:
         )
     if not settings.public_origin.startswith(("https://", "http://")):
         raise ConfigError("PUBLIC_ORIGIN must be an origin such as https://example.org")
-    for name in ("code_rate_per_email", "code_rate_per_ip", "verify_rate_per_ip", "session_days"):
+    for name in ("code_rate_per_email", "code_rate_per_ip", "verify_rate_per_ip", "session_days", "sync_request_ttl_minutes"):
         if getattr(settings, name) < 1:
             raise ConfigError(f"{name.upper()} must be at least 1")
     return settings
@@ -139,5 +140,6 @@ def load_settings(env: dict[str, str] | None = None, secrets_dir: str | Path | N
         session_days=_int(env, "SESSION_DAYS", defaults.session_days),
         mail_capture_dir=env.get("MAIL_CAPTURE_DIR", defaults.mail_capture_dir),
         mail_capture_ttl_minutes=_int(env, "MAIL_CAPTURE_TTL_MINUTES", defaults.mail_capture_ttl_minutes),
+        sync_request_ttl_minutes=_int(env, "SYNC_REQUEST_TTL_MINUTES", defaults.sync_request_ttl_minutes),
     )
     return validate(settings)

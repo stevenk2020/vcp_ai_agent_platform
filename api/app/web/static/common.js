@@ -25,7 +25,7 @@ export async function api(method, path, body) {
 
 const ALLOWED_ATTRIBUTES = new Set([
   "class", "type", "value", "href", "id", "for", "name", "disabled", "hidden", "maxlength", "rows", "autocomplete",
-  "role", "required", "placeholder", "selected", "checked", "colspan", "scope",
+  "role", "required", "placeholder", "selected", "checked", "colspan", "scope", "title", "datetime",
 ]);
 
 // el("button", { class: "btn", onclick: fn }, "text", childNode): children that are strings become text nodes.
@@ -78,6 +78,7 @@ export function messageFor(status, data) {
   if (status === 403) return "You are not allowed to do this.";
   if (code === "last_admin") return "This would remove the last active admin. Make another admin first.";
   if (code === "already_handled") return "Someone else already handled this person. The list was refreshed.";
+  if (code === "sync_busy") return "A sync is already waiting or running.";
   if (status === 409) return "That already exists.";
   if (status === 422) return data && typeof data.message === "string" ? data.message : "That is not valid.";
   if (status === 429) return "Too many attempts. Please wait a little and try again.";

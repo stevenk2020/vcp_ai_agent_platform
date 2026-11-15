@@ -181,3 +181,23 @@ def test_the_css_and_svg_lint_catch_banned_patterns(snippet):
 def test_clean_snippets_pass():
     assert js_violations("node.textContent = value; fetch('/v1/access');") == []
     assert html_violations('<script type="module" src="/static/app.js"></script><a href="/admin">x</a>') == []
+
+
+# ---- feature 004: the Data tab of the admin page ----------------------------------------------------------------
+
+def test_the_data_tab_reads_only_same_origin_sync_endpoints_and_writes_text_only():
+    js = (WEB / "admin-assets" / "admin.js").read_text(encoding="utf-8")
+    start, end = js.index("// ---- Data (sync status"), js.index("// ---- tabs")
+    section = js[start:end]
+    assert "/v1/admin/sync" in section
+    assert "innerHTML" not in section and "insertAdjacentHTML" not in section and "outerHTML" not in section
+    assert "http://" not in section and "https://" not in section
+    for field in ("error_text", "reason_code", "last_reason", "table"):
+        assert field in section
+    # the badge class comes from a fixed map, never from the server string
+    assert "STATE_BADGE[item.state]" in section
+
+
+def test_the_refresh_timer_is_stopped_when_another_tab_is_shown():
+    js = (WEB / "admin-assets" / "admin.js").read_text(encoding="utf-8")
+    assert 'if (name !== "data") stopRefresh();' in js and "REFRESH_MS = 15000" in js
