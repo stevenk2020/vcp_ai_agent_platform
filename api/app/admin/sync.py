@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query, Request
 from psycopg import errors as pg_errors
 
-from app import errors
-from app.auth.deps import CurrentUser, require_role
+from app import audit, errors
+from app.auth.deps import CurrentUser, client_ip, require_role
 
 router = APIRouter(prefix="/v1/admin/sync")
 admin_only = require_role("admin")
@@ -107,3 +107,35 @@ async def sync_runs(request: Request, table: str | None = None, limit: int = Que
     more = len(rows) > limit
     items = [_run_row(r) for r in rows[:limit]]
     return {"items": items, "next_before": items[-1]["id"] if more and items else None}
+
+
+@router.post("/{table}/run", status_code=202)
+async def request_sync(table: str, request: Request, actor: CurrentUser = Depends(admin_only)):
+    """Record a request; the worker starts the run within about 5 seconds. One request per table at a time."""
+    state = request.app.state
+    now = state.clock.now()
+    ttl_start = now - timedelta(minutes=state.settings.sync_request_ttl_minutes)
+    try:
+        async with state.db.transaction() as conn:
+            cursor = await conn.execute("SELECT 1 FROM serving.sync_state WHERE table_name = %s", (table,))
+            if await cursor.fetchone() is None:
+                raise errors.unknown_table()
+            cursor = await conn.execute(
+                "SELECT outcome FROM serving.sync_runs WHERE table_name = %s ORDER BY id DESC LIMIT 1", (table,))
+            latest = await cursor.fetchone()
+            if latest is not None and latest["outcome"] == "running":
+                raise errors.sync_busy()
+            # api_rw cannot UPDATE, so "one at a time" is a conditional insert; a rare double click can slip two rows in
+            # and the worker merges them
+            cursor = await conn.execute(
+                "INSERT INTO serving.sync_requests (table_name, requested_by, requested_at) "
+                "SELECT %s, %s, %s WHERE NOT EXISTS (SELECT 1 FROM serving.sync_requests "
+                "WHERE table_name = %s AND state = 'pending' AND requested_at > %s) RETURNING id",
+                (table, actor.id, now, table, ttl_start))
+            if await cursor.fetchone() is None:
+                raise errors.sync_busy()
+            await audit.record(conn, state.clock, "sync_requested", actor_user_id=actor.id, actor_email=actor.email,
+                               target=table, ip=client_ip(request), detail={"table": table})
+    except pg_errors.UndefinedTable:
+        raise errors.unknown_table() from None
+    return {"status": "requested"}

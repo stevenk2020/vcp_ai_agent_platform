@@ -139,3 +139,93 @@ async def test_responses_hold_no_row_data_or_secret(login, sw, clock):
     text = (await admin.get("/v1/admin/sync")).text + (await admin.get("/v1/admin/sync/runs")).text
     for forbidden in ("employee_", "password", "requested_by"):
         assert forbidden not in text.lower()
+
+
+# ======================= US4: "sync now" (POST) =======================
+
+def pending_rows(sw):
+    return sw.execute("SELECT * FROM serving.sync_requests ORDER BY id").fetchall()
+
+
+async def test_an_admin_request_is_accepted_recorded_and_audited(login, sw, sql, clock):
+    put_state(sw, data_as_of=clock.now())
+    admin = await login(ADMIN, role="admin")
+    admin_id = sql.execute("SELECT id FROM app.users WHERE email = %s", (ADMIN,)).fetchone()["id"]
+    response = await admin.post("/v1/admin/sync/sales_contract/run", headers={"X-Forwarded-For": "203.0.113.9"})
+    assert response.status_code == 202 and response.json() == {"status": "requested"}
+    rows = pending_rows(sw)
+    assert len(rows) == 1 and rows[0]["table_name"] == "sales_contract" and rows[0]["state"] == "pending"
+    assert str(rows[0]["requested_by"]) == str(admin_id)
+    events = sql.execute("SELECT * FROM app.audit_events WHERE action = 'sync_requested'").fetchall()
+    assert len(events) == 1
+    event = events[0]
+    assert event["actor_email"] == ADMIN and event["target"] == "sales_contract" and str(event["ip"]) == "203.0.113.9"
+    assert event["detail"] == {"table": "sales_contract"} and event["outcome"] == "success"
+
+
+async def test_a_second_request_while_one_is_pending_is_busy_and_not_audited(login, sw, sql, clock):
+    put_state(sw, data_as_of=clock.now())
+    admin = await login(ADMIN, role="admin")
+    assert (await admin.post("/v1/admin/sync/sales_contract/run")).status_code == 202
+    second = await admin.post("/v1/admin/sync/sales_contract/run")
+    assert second.status_code == 409 and second.json()["error"] == "sync_busy"
+    assert len(pending_rows(sw)) == 1
+    assert sql.execute("SELECT count(*) AS n FROM app.audit_events WHERE action = 'sync_requested'").fetchone()["n"] == 1
+
+
+async def test_a_request_while_a_run_is_active_is_busy(login, sw, sql, clock):
+    put_state(sw, data_as_of=clock.now())
+    put_run(sw, outcome="running", started=clock.now())
+    admin = await login(ADMIN, role="admin")
+    response = await admin.post("/v1/admin/sync/sales_contract/run")
+    assert response.status_code == 409 and response.json()["error"] == "sync_busy"
+    assert pending_rows(sw) == []
+    assert sql.execute("SELECT count(*) AS n FROM app.audit_events WHERE action = 'sync_requested'").fetchone()["n"] == 0
+
+
+async def test_an_old_pending_request_no_longer_blocks_when_the_worker_is_down(login, sw, sql, clock):
+    put_state(sw, data_as_of=clock.now())
+    admin = await login(ADMIN, role="admin")
+    assert (await admin.post("/v1/admin/sync/sales_contract/run")).status_code == 202
+    clock.advance(minutes=14)
+    assert (await admin.post("/v1/admin/sync/sales_contract/run")).status_code == 409      # still inside the 15 minutes
+    clock.advance(minutes=2)                                                              # 16 minutes in: expired
+    assert (await admin.post("/v1/admin/sync/sales_contract/run")).status_code == 202
+    assert len(pending_rows(sw)) == 2
+
+
+async def test_an_unknown_table_is_404_and_not_audited(login, sw, sql):
+    put_state(sw)
+    admin = await login(ADMIN, role="admin")
+    response = await admin.post("/v1/admin/sync/nope/run")
+    assert response.status_code == 404 and response.json()["error"] == "unknown_table"
+    assert pending_rows(sw) == [] and sql.execute("SELECT count(*) AS n FROM app.audit_events WHERE action = 'sync_requested'").fetchone()["n"] == 0
+
+
+async def test_non_admins_waiting_people_and_visitors_are_refused(login, login_pending, new_client, sw, sql, clock):
+    put_state(sw, data_as_of=clock.now())
+    user = await login("user@example.com", role="user")
+    assert (await user.post("/v1/admin/sync/sales_contract/run")).status_code == 403
+    waiting = await login_pending("wait@example.org")
+    assert (await waiting.post("/v1/admin/sync/sales_contract/run")).status_code == 401
+    assert (await new_client().post("/v1/admin/sync/sales_contract/run")).status_code == 401
+    assert pending_rows(sw) == []
+
+
+@pytest.mark.parametrize("origin", [None, "https://evil.example"])
+async def test_the_origin_guard_applies(login, new_client, sw, clock, origin):
+    put_state(sw, data_as_of=clock.now())
+    await login(ADMIN, role="admin")
+    admin = await login("second-admin@example.com", role="admin")
+    other = new_client(origin=origin)
+    other.cookies.update(admin.cookies)
+    response = await other.post("/v1/admin/sync/sales_contract/run")
+    assert response.status_code == 403 and pending_rows(sw) == []
+
+
+async def test_the_request_text_in_the_audit_log_is_only_the_table(login, sw, sql, clock):
+    put_state(sw, data_as_of=clock.now())
+    admin = await login(ADMIN, role="admin")
+    await admin.post("/v1/admin/sync/sales_contract/run")
+    shown = (await admin.get("/v1/admin/audit?action=sync_requested")).json()["items"]
+    assert len(shown) == 1 and shown[0]["detail"] == {"table": "sales_contract"}

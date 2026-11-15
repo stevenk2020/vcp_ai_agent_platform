@@ -170,7 +170,7 @@ def test_every_action_name_has_a_scenario_above():
         "code_requested", "code_send_failed", "code_verified", "code_failed", "code_locked", "google_signin",
         "signin_pending", "signin_refused", "rate_limited", "session_created", "session_revoked", "signed_out",
         "allowlist_added", "allowlist_removed", "user_approved", "user_rejected", "user_suspended", "role_changed",
-        "first_admin_created", "first_admin_refused", "last_admin_blocked", "access_requested",
+        "first_admin_created", "first_admin_refused", "last_admin_blocked", "access_requested", "sync_requested",
     }
     assert covered == set(audit.ACTIONS)
 

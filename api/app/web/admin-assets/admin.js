@@ -282,7 +282,20 @@ function whenCell(label, iso) {
   return cell(label, el("span", { title: iso }, fmtTime(iso)));
 }
 
-function statusBlock(item) {
+async function runNow(item, reload) {
+  const answer = await confirmDialog({
+    title: "Sync now?",
+    message: "This reads the whole source table now. Normal syncs run every 10 minutes. Continue?",
+    okLabel: "Sync now",
+  });
+  if (!answer) return;
+  const response = await api("POST", `/v1/admin/sync/${encodeURIComponent(item.table)}/run`);
+  await reload(); // reloading clears the status line, so the message comes after it
+  if (response.status === 202) say("ok", "Requested: the run will start within a few seconds.");
+  else fail(response);
+}
+
+function statusBlock(item, reload) {
   const facts = [
     ["Data as of", item.data_as_of ? `${fmtTime(item.data_as_of)} (${minutes(item.age_seconds)} ago)` : "never"],
     ["Rows", item.copied_rows === null ? "" : `${item.copied_rows} copied of ${item.source_rows} read`],
@@ -293,7 +306,10 @@ function statusBlock(item) {
   const list = el("dl", { class: "facts" });
   for (const [term, value] of facts) list.append(el("dt", {}, term), el("dd", {}, value));
   const badge = el("span", { class: "badge " + (STATE_BADGE[item.state] || "none") }, STATE_LABEL[item.state] || "Unknown");
-  return el("section", { "aria-label": `Table ${item.table}` }, el("h3", {}, item.table, " ", badge), list);
+  const busy = item.running || item.request_pending;
+  const button = el("button", { type: "button", disabled: busy, onclick: () => runNow(item, reload) }, "Sync now");
+  return el("section", { "aria-label": `Table ${item.table}` }, el("h3", {}, item.table, " ", badge), list,
+    el("div", { class: "row" }, button, busy ? el("span", { class: "muted" }, "A sync is already waiting or running.") : null));
 }
 
 async function renderData() {
@@ -321,7 +337,7 @@ async function renderData() {
     if (status.data.tables.length === 0) {
       blocks.appendChild(el("p", {}, "No synced table is registered yet. The sync service registers its tables when it starts."));
     }
-    for (const item of status.data.tables) blocks.appendChild(statusBlock(item));
+    for (const item of status.data.tables) blocks.appendChild(statusBlock(item, load));
     clear(runsBody);
     for (const run of runs.data.items) {
       runsBody.appendChild(el("tr", {},

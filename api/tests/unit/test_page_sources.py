@@ -201,3 +201,20 @@ def test_the_data_tab_reads_only_same_origin_sync_endpoints_and_writes_text_only
 def test_the_refresh_timer_is_stopped_when_another_tab_is_shown():
     js = (WEB / "admin-assets" / "admin.js").read_text(encoding="utf-8")
     assert 'if (name !== "data") stopRefresh();' in js and "REFRESH_MS = 15000" in js
+
+
+def test_sync_now_goes_through_the_confirm_dialog_and_the_shared_api_helper():
+    js = (WEB / "admin-assets" / "admin.js").read_text(encoding="utf-8")
+    start = js.index("async function runNow")
+    block = js[start:js.index("function statusBlock")]
+    assert block.index("confirmDialog") < block.index('api("POST"')            # confirmation first, then the request
+    assert "/v1/admin/sync/${encodeURIComponent(item.table)}/run" in block
+    assert "fetch(" not in js.replace("await fetch(path, init)", "")             # every request uses api() from common.js
+    assert "onclick" in js and "onclick=" not in js                              # handlers are attached from script
+    common = (WEB / "static" / "common.js").read_text(encoding="utf-8")
+    assert '"sync_busy"' in common and "A sync is already waiting or running." in common
+
+
+def test_the_button_is_disabled_while_a_sync_is_running_or_requested():
+    js = (WEB / "admin-assets" / "admin.js").read_text(encoding="utf-8")
+    assert "const busy = item.running || item.request_pending;" in js and "disabled: busy" in js

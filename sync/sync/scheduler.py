@@ -72,8 +72,32 @@ class Service:
         with self.run_lock:
             self.runner.run_once(table, "schedule")
 
-    def poll_requests(self) -> None:  # filled in by task T027
-        return None
+    def poll_requests(self) -> None:
+        """Pick up admin requests: cancel expired and unknown ones, take the oldest, run it, merge duplicates."""
+        conn = self.poll_store.conn
+        ttl = self.s.sync_request_ttl_minutes
+        known = list(self.defs)
+        conn.execute("UPDATE serving.sync_requests SET state = 'cancelled' WHERE state = 'pending' "
+                     "AND requested_at < now() - make_interval(mins => %s)", (ttl,))
+        conn.execute("UPDATE serving.sync_requests SET state = 'cancelled' WHERE state = 'pending' AND table_name <> ALL(%s)", (known,))
+        if not conn.execute("SELECT 1 FROM serving.sync_requests WHERE state = 'pending' LIMIT 1").fetchone():
+            return
+        with self.run_lock:  # waits while a scheduled run is active: the request is taken after it, not lost
+            with conn.transaction():
+                row = conn.execute(
+                    "SELECT * FROM serving.sync_requests WHERE state = 'pending' ORDER BY requested_at, id LIMIT 1 FOR UPDATE SKIP LOCKED"
+                ).fetchone()
+                if row is None:
+                    return
+                conn.execute("UPDATE serving.sync_requests SET state = 'taken' WHERE id = %s", (row["id"],))
+                conn.execute("UPDATE serving.sync_requests SET state = 'cancelled' WHERE state = 'pending' AND table_name = %s AND id <> %s",
+                             (row["table_name"], row["id"]))
+            result = self.runner.run_once(row["table_name"], "admin", requested_by=str(row["requested_by"]))
+            if result.outcome == "skipped_busy":
+                # another worker holds the lock: try again at the next poll
+                conn.execute("UPDATE serving.sync_requests SET state = 'pending' WHERE id = %s", (row["id"],))
+            else:
+                conn.execute("UPDATE serving.sync_requests SET run_id = %s WHERE id = %s", (result.run_id, row["id"]))
 
     def heartbeat(self) -> None:
         Path(self.heartbeat_file).touch()
