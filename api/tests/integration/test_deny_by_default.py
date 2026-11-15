@@ -22,10 +22,10 @@ PUBLIC = {
     ("GET", "/v1/auth/google/start"), ("GET", "/v1/auth/google/callback"),
     ("GET", "/"), ("GET", "/static/{name:path}"),
 }
-# routes that must exist (they are part of the contract); a missing one is a failure, not a skip
-MUST_EXIST = WAITING_ALLOWED | PUBLIC | ADMIN_PAGES
 # page routes for admins: refusal is 302 (signed out) or 403 (not an admin), never 200
 ADMIN_PAGES = {("GET", "/admin"), ("GET", "/admin/assets/{name}")}
+# routes that must exist (they are part of the contract); a missing one is a failure, not a skip
+MUST_EXIST = WAITING_ALLOWED | PUBLIC | ADMIN_PAGES
 
 
 def routes(app):
