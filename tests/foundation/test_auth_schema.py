@@ -71,11 +71,18 @@ def test_audit_events_are_append_only_for_the_api_role(api_rw):
 
 
 @pytest.mark.parametrize("schema", ["serving", "kb"])
-def test_api_rw_cannot_reach_serving_or_kb(api_rw, schema):
-    with pytest.raises(DENIED):
-        api_rw.execute(f"SELECT * FROM {schema}.anything")
-    with pytest.raises(DENIED):
-        api_rw.execute(f"CREATE TABLE {schema}.should_fail (id int)")
+def test_api_rw_cannot_reach_serving_or_kb(api_rw, schema, sync_writer, app_owner):
+    """Amended 2026-11-15 (feature 004): api_rw now has USAGE on serving (for the sync control tables only),
+    so the probe must be a real table: reading it, or creating anything in the schema, is still denied."""
+    owner = sync_writer if schema == "serving" else app_owner
+    owner.execute(f"CREATE TABLE IF NOT EXISTS {schema}.api_probe (id int)")
+    try:
+        with pytest.raises(DENIED):
+            api_rw.execute(f"SELECT * FROM {schema}.api_probe")
+        with pytest.raises(DENIED):
+            api_rw.execute(f"CREATE TABLE {schema}.should_fail (id int)")
+    finally:
+        owner.execute(f"DROP TABLE IF EXISTS {schema}.api_probe")
 
 
 def test_other_roles_cannot_read_the_auth_tables():

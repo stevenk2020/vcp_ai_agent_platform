@@ -1,0 +1,40 @@
+# A second, tiny definition used only by the tests: proves a table is added by configuration alone (FR-015).
+[table]
+source = "dbo.toy"
+copy = "toy"
+key = ["id"]
+version = 1
+
+[guards]
+min_rows = 1
+
+[[columns]]
+name = "id"
+source_type = "nvarchar"
+copy_type = "text"
+meaning = "Identifier of the toy row"
+sensitivity = "none"
+
+[[columns]]
+name = "qty"
+source_type = "float"
+copy_type = "integer"
+meaning = "A whole number"
+sensitivity = "none"
+
+[[columns]]
+name = "amount"
+source_type = "float"
+copy_type = "numeric(20,4)"
+meaning = "A money amount"
+sensitivity = "none"
+
+[[excluded]]
+name = "secret_note"
+source_type = "nvarchar"
+meaning = "A column that must never be copied"
+reason = "test: sensitive"
+
+[[indexes]]
+name = "toy_qty_idx"
+columns = ["qty"]

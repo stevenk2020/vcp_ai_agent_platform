@@ -142,3 +142,19 @@ def test_agent_cannot_use_set_role_to_escalate(serving_table):
         for target in ("sync_writer", "app_owner", "postgres"):
             with pytest.raises((errors.InsufficientPrivilege, psycopg.Error)):
                 conn.execute(f"SET ROLE {target}")
+
+
+# ---- feature 004: the API role sees the schema serving but none of the copied data -----------------
+
+def test_api_rw_has_usage_on_serving_but_cannot_read_a_copy(serving_table):
+    with connect("api_rw") as conn:
+        assert conn.execute("SELECT has_schema_privilege('api_rw', 'serving', 'USAGE')").fetchone() == (True,)
+        _denied(conn, f"SELECT * FROM {serving_table}")
+        _denied(conn, f"SELECT count(*) FROM {serving_table}")
+
+
+def test_only_sync_writer_can_create_or_drop_in_serving(serving_table):
+    for role in ("agent_ro", "api_rw", "app_owner", "backup_ro"):
+        with connect(role) as conn:
+            _denied(conn, "CREATE TABLE serving.attempt (id int)")
+            _denied(conn, f"DROP TABLE {serving_table}")

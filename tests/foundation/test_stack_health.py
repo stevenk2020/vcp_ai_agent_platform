@@ -9,7 +9,7 @@ import pytest
 
 from conftest import compose, connect
 
-REQUIRED_SERVICES = ("postgres", "redis")
+REQUIRED_SERVICES = ("postgres", "redis", "sync")
 
 
 def _ps() -> dict[str, dict]:
@@ -60,3 +60,16 @@ def test_data_survives_stop_and_start():
         rows = conn.execute("SELECT value FROM scratch.marker WHERE value = %s", (marker,)).fetchall()
         assert rows == [(marker,)]
         conn.execute("DROP SCHEMA scratch CASCADE")
+
+
+def test_sync_service_idles_without_a_source_secret_and_says_so():
+    """Feature 004: with an empty secrets/source_sqlserver the worker is healthy and idle, never in a crash loop."""
+    from conftest import SECRETS_DIR
+
+    secret = SECRETS_DIR / "source_sqlserver"
+    if secret.is_file() and secret.stat().st_size > 0:
+        pytest.skip("the source secret is filled: the worker is expected to run real syncs")
+    row = _ps()["sync"]
+    assert row["State"] == "running" and row["Health"] == "healthy"
+    logs = compose("logs", "--no-log-prefix", "sync").stdout
+    assert "source_not_configured" in logs

@@ -25,6 +25,11 @@ def backed_up(backup_stack):
         conn.execute("DROP TABLE IF EXISTS serving.restore_probe")
         conn.execute("CREATE TABLE serving.restore_probe (id int PRIMARY KEY, label text)")
         conn.execute("INSERT INTO serving.restore_probe SELECT g, 'row ' || g FROM generate_series(1, 250) g")
+        # feature 004: the sync control tables travel in the same dump (a run row proves it)
+        conn.execute((REPO_ROOT / "sync" / "sql" / "control.sql").read_text(encoding="utf-8"))
+        conn.execute("DELETE FROM serving.sync_runs WHERE table_name = 'restore_probe'")
+        conn.execute("INSERT INTO serving.sync_runs (table_name, trigger, started_at, outcome) "
+                     "VALUES ('restore_probe', 'command', now(), 'succeeded')")
     result = backup_stack.compose("exec", "-T", "backup", "/usr/local/bin/backup.sh", check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     return backup_stack

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import REPO_ROOT, SECRETS_DIR
+from conftest import REPO_ROOT, SECRETS_DIR, compose
 
 # service -> exact set of secrets it may receive (data-model.md "Secret" table).
 # A service that appears in the config but not here fails the test: update the table deliberately.
@@ -28,7 +28,9 @@ EXPECTED_SECRETS = {
     "migrate": {"app_owner_password"},
     "backup": {"backup_ro_password", "backup_age_public_key", "rclone_config"},
     "api": {"api_rw_password", "auth_pepper", "api_external"},
-    "api-test": {"api_rw_password", "auth_pepper", "api_external", "app_owner_password"},
+    "api-test": {"api_rw_password", "auth_pepper", "api_external", "app_owner_password", "sync_writer_password"},
+    "sync": {"sync_writer_password", "source_sqlserver"},
+    "sync-test": {"sync_writer_password", "source_sqlserver", "app_owner_password", "agent_ro_password", "api_rw_password"},
 }
 
 COMPOSE_FILES = [REPO_ROOT / "compose.yaml", REPO_ROOT / "compose.backup.yaml"]
@@ -139,3 +141,23 @@ def test_scan_secrets_detects_a_planted_secret(tmp_path: Path):
     assert result.returncode == 1
     assert "notes.md" in result.stderr
     assert "s3cr3t-value-123456" not in result.stderr + result.stdout
+
+
+def test_source_credentials_reach_only_the_sync_services():
+    """Feature 004 (research R-10): the SQL Server credentials stay out of every other service."""
+    config, _ = _config()
+    holders = {name for name, service in config["services"].items()
+               if "source_sqlserver" in {secret["source"] for secret in service.get("secrets", [])}}
+    assert holders == {"sync", "sync-test"}
+
+
+def test_no_source_credential_name_appears_in_any_environment_block():
+    config, _ = _config()
+    for name, service in config["services"].items():
+        env = service.get("environment") or {}
+        assert not [key for key in env if key.lower().startswith("sql_server")], name
+
+
+def test_the_api_image_does_not_contain_the_sql_server_driver():
+    result = compose("run", "--rm", "--no-deps", "--entrypoint", "python", "api", "-c", "import pymssql", check=False)
+    assert result.returncode != 0 and "No module named" in result.stderr
