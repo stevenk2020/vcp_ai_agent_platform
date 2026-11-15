@@ -52,10 +52,11 @@ migrate:
 	$(DC) run --rm migrate
 
 backup:
-	@echo "not implemented yet (T037)"; exit 1
+	@if [ "$(BACKUP_ENABLED)" != "yes" ]; then echo "backup disabled: provide secrets/backup_age_public_key first (docs/restore.md)"; exit 1; fi
+	$(DC) exec -T backup /usr/local/bin/backup.sh
 
 restore-test:
-	@echo "not implemented yet (T037)"; exit 1
+	@bash scripts/restore-test.sh
 
 test:
 	@cd tests && uv run pytest $(ARGS)

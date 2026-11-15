@@ -1,0 +1,36 @@
+# Backup service and its two operator-provided secrets.
+# Loaded by `make up` only when secrets/backup_age_public_key exists and is non-empty, because Compose
+# fails when a declared secret file is missing (research R-6). Always combine with compose.yaml.
+secrets:
+  backup_age_public_key:
+    file: ./secrets/backup_age_public_key
+  rclone_config:
+    file: ./secrets/rclone_config
+
+services:
+  backup:
+    build: ./backup
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+      BACKUP_SCHEDULE: "${BACKUP_SCHEDULE:-0 2 * * *}"
+      BACKUP_REMOTE: ${BACKUP_REMOTE:-gdrive:platform-backups}
+      BACKUP_RETENTION_LOCAL_DAYS: ${BACKUP_RETENTION_LOCAL_DAYS:-7}
+      BACKUP_RETENTION_REMOTE_DAYS: ${BACKUP_RETENTION_REMOTE_DAYS:-30}
+    secrets:
+      - backup_ro_password
+      - backup_age_public_key
+      - rclone_config
+    volumes:
+      - backup_local:/var/lib/backup
+    networks:
+      - platform
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: ${BACKUP_HEALTH_INTERVAL:-10m}
+      timeout: 10s
+      retries: 1
+      start_period: 30s

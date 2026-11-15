@@ -1,0 +1,28 @@
+# Phase 0 verification items: `dbo.sales_contract`
+
+These four questions about the source system decide how the sync worker is built. They are open
+until someone answers them with evidence. **The sync-worker feature must not start until all four
+are `resolved`** (constitution, Development Workflow; spec FR-015 and SC-007).
+
+Status values: `open`, `in_progress`, `resolved`.
+
+| id | question | owner | status | finding | date |
+| --- | --- | --- | --- | --- | --- |
+| V-1 | Obtain read access to the source SQL Server with a read-only account (check what the current account in `.env` can do) | TODO(owner) | open | | |
+| V-2 | Measure the real row count and the delete-insert cycle of `dbo.sales_contract` (how often it runs, how long the table is empty or partial) | TODO(owner) | open | | |
+| V-3 | Does the source delete-insert job run in a single transaction? (ask the table owner) | TODO(owner) | open | | |
+| V-4 | Can the DBA enable snapshot isolation (`ALLOW_SNAPSHOT_ISOLATION`) on the source database? | TODO(owner) | open | | |
+
+## How to record a finding
+
+Change `status` to `resolved`, write the answer in `finding` (numbers, who confirmed, how), and put
+the date in `date`. If the answer changes the sync design, say so in the finding and update
+`specs/` accordingly.
+
+## Why each one matters
+
+- **V-1**: the sync worker needs a SELECT-only account; a writable account would break least
+  privilege (research R-5).
+- **V-2** and **V-3**: decide between reading with snapshot isolation or the row-count sanity check
+  with retries (spec section 6.2). Without them the agent could read a half-loaded table.
+- **V-4**: if enabled, reads are consistent without extra guards.

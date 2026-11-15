@@ -1,0 +1,20 @@
+# Override used only by the backup tests (project "platform-test"): throwaway age key, empty rclone
+# config and a local directory as the off-site "remote". Paths come from environment variables set
+# by the backup_stack fixture, so real secrets and Google Drive are never touched.
+secrets:
+  backup_age_public_key:
+    file: ${TEST_AGE_PUBKEY}
+  rclone_config:
+    file: ${TEST_RCLONE_CONFIG}
+
+services:
+  backup:
+    environment:
+      BACKUP_REMOTE: /remote
+    volumes:
+      - ${TEST_REMOTE_DIR}:/remote
+    healthcheck:
+      interval: 3s
+      timeout: 5s
+      retries: 1
+      start_period: 1s

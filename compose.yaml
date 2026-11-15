@@ -4,8 +4,7 @@
 name: platform
 
 networks:
-  platform:
-    name: platform
+  platform: {}
 
 volumes:
   pgdata:
