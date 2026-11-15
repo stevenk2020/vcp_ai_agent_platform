@@ -41,7 +41,12 @@ implementation time but do not change the design.
 - **Decision**: A `backup` container runs a daily job (busybox `crond`): `pg_dump -Fc` of the application database plus `pg_dumpall --globals-only` (roles), encrypted with `age` using the operator's public key, uploaded with `rclone` to the operator's remote, local copy retained 7 days. Success is recorded as a timestamp file; the container healthcheck fails if the last success is older than 26 hours, so a missing or stale backup shows as `unhealthy` in `docker compose ps` (FR-013). Restore is a documented manual procedure; `scripts/restore-test.sh` restores the latest backup into a scratch database and compares per-schema row counts with the live database. Only the age *public* key lives on the VPS; the private key stays with the operator.
 - **Rationale**: Backups carry business data off the machine, so encrypting them protects against a leaked bucket. A real restore into an empty database is the only proof a backup works (FR-012).
 - **Alternatives**: WAL archiving / pgBackRest / Barman (point-in-time recovery is more than the current scale needs; revisit if the data becomes irreplaceable); VPS provider snapshots only (not tested restore, same provider failure domain).
-- *Operator input*: the rclone remote (for example S3-compatible bucket, SFTP, Google Drive) and retention policy at the remote.
+- **Operator choice (2026-11-15)**: off-site destination is **Google Drive**, accessed through an rclone `drive` remote (for example `gdrive:platform-backups`). Practical points that shape the implementation:
+  - Authorisation needs a browser. On the headless VPS, run `rclone authorize "drive"` on a machine with a browser and paste the token into `secrets/rclone_config`.
+  - Use **your own Google OAuth client ID** (or a service account with a shared folder) instead of rclone's shared one, to avoid rate limits. If the OAuth consent screen is left in "Testing" status, Google expires the refresh token after 7 days and backups would silently start failing; publish the app (Internal/Production) or use a service account. The staleness health check (26 h) catches this, but it should not be a surprise.
+  - Backups are encrypted with `age` before upload, so Drive only ever holds ciphertext.
+  - Retention at the remote is handled by the backup job (`rclone delete --min-age`), default 30 days; Drive's trash is emptied by the same job.
+- *Operator input still open*: the age key pair (deferred by the operator; the backup job refuses to run without a public key, so `make backup` stays unavailable until it exists).
 
 ## R-7: Migrations
 
@@ -53,7 +58,8 @@ implementation time but do not change the design.
 
 - **Decision**: Caddy in the `prod` profile with automatic certificates for `PLATFORM_DOMAIN`; placeholder site with `/healthz` returning 200 until the API exists. Locally the entry point is skipped.
 - **Rationale**: Caddy is already the constitution's choice and handles certificate issuance and renewal with no extra configuration.
-- *Operator input*: the domain name and DNS pointing at the VPS. Until then, HTTPS acceptance is deferred on the VPS (spec Assumptions).
+- **Operator choice (2026-11-15)**: `PLATFORM_DOMAIN=onepercentdata.site` (temporary). Requirements: an `A` record for the domain pointing at the VPS public IP, and ports 80 and 443 open in the firewall (Caddy uses them for certificate issuance and renewal). The domain can be changed later by editing one variable. If the apex domain is needed for another site, switch to a subdomain such as `platform.onepercentdata.site`; no design change.
+- *Operator input still open*: DNS record in place. Until then, HTTPS acceptance is deferred on the VPS (spec Assumptions).
 
 ## R-9: Network exposure
 

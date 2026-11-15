@@ -39,8 +39,9 @@ backup is missing or stale (FR-013).
 
 | Name | Meaning | Default |
 | --- | --- | --- |
-| `PLATFORM_DOMAIN` | Domain for HTTPS in production | none (required for `up-prod`) |
+| `PLATFORM_DOMAIN` | Domain for HTTPS in production | `onepercentdata.site` (temporary) |
 | `POSTGRES_DB` | Database name | `platform` |
 | `BACKUP_SCHEDULE` | Cron expression for the daily job | `0 2 * * *` |
 | `BACKUP_RETENTION_LOCAL_DAYS` | Local retention | `7` |
-| `BACKUP_REMOTE` | rclone remote path, for example `offsite:platform-backups` | none (required) |
+| `BACKUP_REMOTE` | rclone remote path on Google Drive | `gdrive:platform-backups` |
+| `BACKUP_RETENTION_REMOTE_DAYS` | Retention on Google Drive | `30` |
